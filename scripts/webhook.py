@@ -7,13 +7,20 @@ from flask import Flask, request, jsonify, json
 from pyngrok import ngrok
 from botocore.exceptions import ClientError
 
-import argparse, os, random, string, math
-import boto3, json
+import argparse
+import os
+import random
+import string
+import math
+import boto3
+import json
 
 ###############################################
 ###############################################
 ###############################################
-### Get the secrets
+# Get the secrets
+
+
 def get_secrets():
     """
     This will allow us to pull secrets from aws to run locally or in the cloud.
@@ -39,19 +46,22 @@ def get_secrets():
     secret = get_secret_value_response['SecretString']
     return json.loads(secret)
 
+
 ###############################################
 ###############################################
 ###############################################
-### Define the secrets
+# Define the secrets
 secrets = get_secrets()
-api = TradingClient(secrets.get('APCA_API_KEY_ID'), secrets.get('APCA_API_SECRET_KEY'), paper=True)
+api = TradingClient(secrets.get('APCA_API_KEY_ID'),
+                    secrets.get('APCA_API_SECRET_KEY'), paper=True)
 signature = secrets.get('TRADINGVIEW_SECRET')
 
 ###############################################
 ###############################################
 ###############################################
-### Initialize the APP
+# Initialize the APP
 app = Flask(__name__)
+
 
 def validate_signature(data):
     """
@@ -63,6 +73,7 @@ def validate_signature(data):
     else:
         return True
 
+
 def generate_order_id(data, length=10):
     """
     Creates a unique order id based on interval and strategy coming from the webhook
@@ -71,28 +82,35 @@ def generate_order_id(data, length=10):
     comment = data.get('comment').lower()
     interval = data.get('interval').lower()
     order_rand = ''.join(random.choice(characters) for _ in range(length))
-    order_id = [ comment, interval, order_rand]
+    order_id = [comment, interval, order_rand]
     return "-".join(order_id)
+
 
 def calc_price(price):
     return Decimal(price)
 
+
 def calc_limit_price(price):
     return float(price) * 0.998
+
 
 def calc_profit_price(price):
     return float(price) * 1.001
 
+
 def calc_stop_price(price):
     return float(price) * 0.999
+
 
 def sync_data(data):
     api.get_clock()
     data = request.json
     return data
 
+
 def sanitize_order(data):
     return data
+
 
 def calc_contract_size(data):
     """
@@ -111,14 +129,16 @@ def calc_contract_size(data):
         contracts = 9
     elif (data.get('interval') == '30M'):
         contracts = 11
-        
+
     return contracts
+
 
 def get_position(data):
     try:
         return api.get_open_position(data.get('ticker'))
     except Exception as e:
-            return False
+        return False
+
 
 def smash_or_pass(data, position):
     """
@@ -128,7 +148,7 @@ def smash_or_pass(data, position):
 
     If there's no profit and the action isn't the same then we skip for better trades.
     """
-    profit = math.copysign(1,float(position.unrealized_pl))
+    profit = math.copysign(1, float(position.unrealized_pl))
     #  qty = math.copysign(1,float(position.qty))
     print('--------------------------------profit')
     print(profit)
@@ -253,7 +273,8 @@ def market():
             else:
                 print('Skipping the order')
 
-            response_data = {"message": "Webhook received and processed successfully"}
+            response_data = {
+                "message": "Webhook received and processed successfully"}
 
             return jsonify(response_data), 200
 
@@ -275,9 +296,9 @@ def debug():
                 sp = smash_or_pass(data, position)
             else:
                 sp = True
-                
 
-            response_data = {"message": "Webhook received and processed successfully"}
+            response_data = {
+                "message": "Webhook received and processed successfully"}
             return jsonify(response_data), 200
         except Exception as e:
 
@@ -291,9 +312,11 @@ def log_request_info():
     app.logger.debug('Headers: %s', request.headers)
     app.logger.debug('Body: %s', request.get_data())
 
+
 if __name__ == '__main__':
     # Start ngrok tunnel with authentication token and custom domain
     ngrok.set_auth_token(secrets.get('NGROK_AUTH_TOKEN'))
-    public_url = ngrok.connect(5000, hostname=secrets.get('CUSTOM_DOMAIN')).public_url
+    public_url = ngrok.connect(
+        5000, hostname=secrets.get('CUSTOM_DOMAIN')).public_url
     print(f"ngrok tunnel URL: {public_url}")
     app.run(host='0.0.0.0', port=5000)
