@@ -26,10 +26,9 @@ if (profit > 0):
 else:
     print('skipping you will lose money')
 
+ if (position.unrealized_pl > 0):
+     print(position.unrealized_pl)
+ else:
+     print('skipping you will lose money')
 
-# Get a list of all of our positions.
-#  portfolio = api.get_all_positions()
-
-# Print the quantity of shares for each position.
-#  for position in portfolio:
-    #  print("{} shares of {}".format(position.qty, position.symbol))
+     
