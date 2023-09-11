@@ -1,0 +1,11 @@
+version: '3'
+services:
+  webhook:
+    build:
+      context: ./  # Path to the directory containing your Dockerfile
+      dockerfile: Dockerfile  # Specify the name of your Dockerfile
+    environment:
+      - AWS_ACCESS_KEY_ID:$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY:$AWS_SECRET_ACCESS_KEY
+    ports:
+      - "443:443"  # Map a port on your host to a port in the container
