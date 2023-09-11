@@ -9,6 +9,7 @@ from pyngrok import ngrok
 import boto3
 import json
 import math
+import os
 import random
 import requests
 import string
@@ -315,4 +316,4 @@ if __name__ == '__main__':
     public_url = ngrok.connect(
         5000, hostname=secrets.get('CUSTOM_DOMAIN')).public_url
     print(f"ngrok tunnel URL: {public_url}")
-    app.run(host='0.0.0.0', port=443)
+    app.run(host='0.0.0.0', port=5000)
