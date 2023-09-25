@@ -135,6 +135,7 @@ def calc_contract_size(data):
     # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
     # @WHY: because it's funner this way
     """
+    return 1
     if (data.get('interval') == 'S'):
         contracts = 2
     elif (data.get('interval') == '30S'):
@@ -172,7 +173,6 @@ def smash_or_pass(data, position):
     If there's no profit and the action isn't the same then we skip for better trades.
     """
     profit = math.copysign(1, float(position.unrealized_pl))
-    #  qty = math.copysign(1,float(position.qty))
     print('--------------------------------profit')
     print(profit)
     print('--------------------------------position')

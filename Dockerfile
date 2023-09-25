@@ -14,4 +14,4 @@ RUN python -m pip install -r requirements.txt
 WORKDIR /app
 COPY . /app
 
-CMD ["python", "app/webhook.py"]
+CMD ["python", "averaging-down.py"]
