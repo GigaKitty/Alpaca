@@ -5,6 +5,16 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
+    tty: true
+    # runtime: nvidia
+    stdin_open: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ['0']
+            capabilities: [gpu]
     volumes:
       - $PWD/app/:/app/
     environment:

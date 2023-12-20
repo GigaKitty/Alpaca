@@ -47,23 +47,6 @@ def get_secrets():
     return json.loads(secret)
 
 
-###############################################
-###############################################
-###############################################
-# Define the secrets that are pulled from AWS.
-# @NOTE: we are not going to use an .env file for anything and all secrets will be pulled from Secrets Manager
-secrets = get_secrets()
-api = TradingClient(secrets.get('APCA_API_KEY_ID'),
-                    secrets.get('APCA_API_SECRET_KEY'), paper=True)
-signature = secrets.get('TRADINGVIEW_SECRET')
-
-###############################################
-###############################################
-###############################################
-# Initialize the APP
-app = Flask(__name__)
-
-
 def validate_signature(data):
     """
     Validates a simple field value in the webhook to continue processing webhook otherwise fails.
@@ -302,6 +285,23 @@ def order():
             error_message = {"error": "Failed to process webhook request"}
 
             return jsonify(error_message), 400
+
+
+###############################################
+###############################################
+###############################################
+# Define the secrets that are pulled from AWS.
+# @NOTE: we are not going to use an .env file for anything and all secrets will be pulled from Secrets Manager
+secrets = get_secrets()
+api = TradingClient(secrets.get('APCA_API_KEY_ID'),
+                    secrets.get('APCA_API_SECRET_KEY'), paper=True)
+signature = secrets.get('TRADINGVIEW_SECRET')
+
+###############################################
+###############################################
+###############################################
+# Initialize the APP
+app = Flask(__name__)
 
 
 @app.before_request
