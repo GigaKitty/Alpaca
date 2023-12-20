@@ -135,10 +135,9 @@ def calc_contract_size(data):
     # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
     # @WHY: because it's funner this way
     """
-    return 1
     if (data.get('interval') == 'S'):
         contracts = 2
-    elif (data.get('interval') == '30S'):
+    elif (data.get('interval') in ['1S', '5S', '30S']):
         contracts = 3
     elif (data.get('interval') == '1'):
         contracts = 5
@@ -148,6 +147,8 @@ def calc_contract_size(data):
         contracts = 13
     elif (data.get('interval') == '30'):
         contracts = 21
+    elif (data.get('interval') == '1H'):
+        contracts = 34
     else:
         contracts = 1
 
@@ -206,6 +207,7 @@ def smash_or_pass(data, position):
         print("Continue")
         return True
 
+
 def toggle_light_position(data, profit):
     """
     Tap into our lifx power to visually keep track of order status
@@ -254,6 +256,7 @@ def order():
     if (validate_signature(data) == True):
         try:
             action = data.get('action')
+            print(action)
             contracts = calc_contract_size(data)
             order_id = generate_order_id(data, 10)
             ticker = data.get('ticker')
@@ -274,7 +277,7 @@ def order():
             else:
                 sp = True
 
-            if sp is True:
+            if sp is True and action == 'buy':
                 print('!--------------------------------------Posting order')
                 print(data)
                 market_order_data = MarketOrderRequest(
