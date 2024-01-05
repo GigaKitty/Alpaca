@@ -26,6 +26,7 @@ def get_secrets():
     """
 
     # @TODO: make this dynamic for dev|prod i.e. paper|live
+    environment = os.environ.get("ENVIRONMENT")
     secret_name = "alpaca-tradingview"
     # @TODO: make this dynamic for region ( no need for multi-region or anything fancy )
     region_name = "us-west-2"
@@ -110,8 +111,16 @@ def sync_data(data):
     data = request.json
     return data
 
+def calc_contract_size_smart(data):
+    """
+    """
+    #  cash = get_cash()
+    #  stoc = get_stock_price()
 
-def calc_contract_size(data):
+    # 1% of available cash / stock price
+
+
+def calc_contract_size_dumb(data):
     """
     Dumb way to calculate contract size based on interval.
     Lower contract(s) for lower intervals so minimize risk and orders cross comtaminating into losses.
@@ -233,6 +242,20 @@ def order():
     """
     Places a simple market order or BUY or SELL based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
+        #  # preparing bracket order with both stop loss and take profit
+        #  bracket__order_data = MarketOrderRequest(
+        #                      symbol="QQQ",
+        #                      qty=1,
+        #                      side=OrderSide.BUY,
+        #                      time_in_force=TimeInForce.DAY,
+        #                      order_class=OrderClass.BRACKET,
+        #                      take_profit=TakeProfitRequest(400),
+        #                      stop_loss=StopLossRequest(300)
+        #                      )
+        #
+        #  bracket_order = trading_client.submit_order(
+        #                  order_data=bracket__order_data
+        #                 )
     """
     data = sync_data(request.json)
 
