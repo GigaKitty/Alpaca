@@ -90,6 +90,16 @@ def generate_order_id(data, length=10):
     return "-".join(order_id)
 
 
+def sync_data(data):
+    """
+    Sync the clock so that we don't get an error from the data request.
+    Set the data var and return it
+    """
+    api.get_clock()
+    data = request.json
+    return data
+
+
 def calc_price(price):
     """
     Convert to decimal obviously
@@ -118,14 +128,18 @@ def calc_stop_price(price):
     return float(price) * 0.999
 
 
-def sync_data(data):
-    """
-    Sync the clock so that we don't get an error from the data request.
-    Set the data var and return it
-    """
-    api.get_clock()
-    data = request.json
-    return data
+def calc_buying_power():
+    # Get our account information.
+    account = api.get_account()
+    
+    # Check if our account is restricted from trading.
+    if account.trading_blocked:
+        print('Account is currently restricted from trading.')
+
+    # Check how much money we can use to open new positions.
+    print('${} is available as buying power.'.format(account.buying_power))
+    
+    return account.buying_power
 
 
 def calc_contract_size(data):
@@ -135,6 +149,18 @@ def calc_contract_size(data):
     # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
     # @WHY: because it's funner this way
     """
+    buying_power = calc_buying_power()
+    print(buying_power)
+    #    one_percent = buying_power * 0.01
+    #
+    #    print("1% of", buying_power, "is:", one_percent)
+    #
+    #    # get share_price
+    #    contracts = one_percent / date.get('price')
+    #
+    #    print(contracts)
+    #
+    return 1
     if (data.get('interval') == 'S'):
         contracts = 2
     elif (data.get('interval') in ['1S', '5S', '30S']):
@@ -173,11 +199,10 @@ def smash_or_pass(data, position):
 
     If there's no profit and the action isn't the same then we skip for better trades.
     """
+    """
+    profit returns a +/- number
+    """
     profit = math.copysign(1, float(position.unrealized_pl))
-    print('--------------------------------profit')
-    print(profit)
-    print('--------------------------------position')
-    print(position)
 
     if data.get('action') == 'buy':
         action = 'long'
@@ -185,6 +210,9 @@ def smash_or_pass(data, position):
         action = 'short'
 
     print(action)
+    print('------PL-------------------------------------------------------------------------------------')
+    print(position.unrealized_pl)
+    print('---------------------------------------------------------------------------------------------')
 
     if (profit <= 0 and position.side == action):
         print(position.unrealized_pl)
@@ -196,9 +224,8 @@ def smash_or_pass(data, position):
         toggle_light_position(data, profit)
         print("Skip")
         return False
-    elif (profit > 0 and position.side != action):
+    elif (profit >= 5 and position.side != action):
         print('Close & Continue')
-        # @TODO: toggle off when closed
         api.close_position(data.get('ticker'))
         toggle_light_position(data, profit)
         print('Closed positions')
@@ -256,7 +283,6 @@ def order():
     if (validate_signature(data) == True):
         try:
             action = data.get('action')
-            print(action)
             contracts = calc_contract_size(data)
             order_id = generate_order_id(data, 10)
             ticker = data.get('ticker')
@@ -279,7 +305,6 @@ def order():
 
             if sp is True and action == 'buy':
                 print('!--------------------------------------Posting order')
-                print(data)
                 market_order_data = MarketOrderRequest(
                     symbol=ticker,
                     qty=contracts,
