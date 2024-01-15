@@ -8,10 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+#COPY requirements.txt .
+#RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
 COPY . /app
 
-CMD ["python", "averaging-down.py"]
+CMD ["python", "main.py"]
