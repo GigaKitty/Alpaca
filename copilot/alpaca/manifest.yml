@@ -21,7 +21,7 @@ storage:
   readonly_fs: true
 
 secrets:
-  GITHUB_TOKEN: GITHUB_TOKEN
+  TEST: TEST
 
 # You can override any of the values defined above by environment.
 #environments:
