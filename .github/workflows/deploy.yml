@@ -18,14 +18,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
-      - name: Print secret
-        run: echo ${{ secrets.AWS_ACCOUNT_ID }}
 
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
+          role-to-assume: arn:aws:iam::684773845799:role/GitHubActionsRole
+ 
           aws-region: us-west-2
  
       # add step that runs on dev branch only
