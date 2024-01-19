@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v2
       
       - name: Print secret
-        run: echo ${{ secrets.YOUR_SECRET_NAME }}
+        run: echo ${{ secrets.AWS_ACCOUNT_ID }}
 
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
