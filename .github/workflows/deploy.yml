@@ -34,9 +34,9 @@ jobs:
       - name: Dev
         if: github.ref == 'refs/heads/dev'
         run: |
-          copilot svc deploy --name api --env dev
+          copilot svc deploy --name alpaca --env dev
 
       - name: Main
         if: github.ref == 'refs/heads/main'
         run: |
-          copilot svc deploy --name api --env main
+          copilot svc deploy --name alpaca --env main
