@@ -1,0 +1,31 @@
+name: alpaca
+type: Load Balanced Web Service
+
+http:
+  path: '/'
+  # You can specify a custom health check path. The default is "/".
+  # healthcheck: '/'
+
+image:
+  build: Dockerfile
+  port: 5000
+
+cpu: 256
+memory: 512
+count: 1
+exec: false
+network:
+  connect: false
+  
+storage:
+  readonly_fs: true
+
+secrets:
+  GITHUB_TOKEN: GITHUB_TOKEN
+
+# You can override any of the values defined above by environment.
+#environments:
+#  test:
+#    count: 2               # Number of tasks to run for the "test" environment.
+#    deployment:            # The deployment strategy for the "test" environment.
+#       rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.

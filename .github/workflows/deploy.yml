@@ -4,11 +4,12 @@ name: Deploy to AWS
 on:
   push:
     branches:
+      - dev
       - main
 
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
@@ -18,45 +19,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Login to AWS
+      - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
           aws-region: us-west-2
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build, tag, and push image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: your-ecr-repo-name
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build, tag, and push image to GitHub Container Registry
-        run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/your-image-name:${{ github.sha }} .
-          docker push ghcr.io/${{ github.repository_owner }}/your-image-name:${{ github.sha }}
  
-      # add step that runs on main branch only
-      - name: Prod
-        if: github.ref == 'refs/heads/main'
-        run: |
-          copilot svc deploy --name api --env prod
-
       # add step that runs on dev branch only
-      - name: Deploy to AWS Copilot
+      - name: Dev
         if: github.ref == 'refs/heads/dev'
         run: |
           copilot svc deploy --name api --env dev
+
+      # add step that runs on main branch only
+      - name: Main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          copilot svc deploy --name api --env main
