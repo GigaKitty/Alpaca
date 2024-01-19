@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Deploy to AWS
 
 on:
@@ -22,17 +21,20 @@ jobs:
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::684773845799:role/GitHubActionsRole
- 
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
           aws-region: us-west-2
- 
-      # add step that runs on dev branch only
+
+      - name: Install AWS Copilot CLI
+        run: |
+          curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux
+          chmod +x copilot
+          sudo mv copilot /usr/local/bin/copilot
+
       - name: Dev
         if: github.ref == 'refs/heads/dev'
         run: |
           copilot svc deploy --name api --env dev
 
-      # add step that runs on main branch only
       - name: Main
         if: github.ref == 'refs/heads/main'
         run: |
