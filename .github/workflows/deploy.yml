@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      - name: Print secret
+        run: echo ${{ secrets.YOUR_SECRET_NAME }}
 
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
