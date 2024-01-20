@@ -3,7 +3,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest, TrailingStopOrderRequest
 from botocore.exceptions import ClientError
 from decimal import Decimal
-from flask import Flask, request, jsonify, json
+from flask import Flask, request, jsonify, json, render_template
 
 import boto3
 import json
