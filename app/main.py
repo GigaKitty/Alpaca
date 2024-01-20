@@ -227,7 +227,6 @@ def health_check():
     # Calculate the number of spaces needed to center the heart horizontally
     num_spaces = (page_width - len(heart_emoji)) // 2
     centered_heart = " " * num_spaces + heart_emoji
-
     # Calculate the number of newlines needed to center the heart vertically
     num_newlines = (50 - 1) // 2
     centered_heart = "\n" * num_newlines + centered_heart
