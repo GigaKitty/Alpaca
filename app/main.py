@@ -221,17 +221,7 @@ def order():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    heart_emoji = "❤️"
-    page_width = 50
-
-    # Calculate the number of spaces needed to center the heart horizontally
-    num_spaces = (page_width - len(heart_emoji)) // 2
-    centered_heart = " " * num_spaces + heart_emoji
-    # Calculate the number of newlines needed to center the heart vertically
-    num_newlines = (50 - 1) // 2
-    centered_heart = "\n" * num_newlines + centered_heart
-
-    return centered_heart, 200
+    return render_template('health.html'), 420004
 
 # Add app.route for 404 page
 @app.errorhandler(404)
