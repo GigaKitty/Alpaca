@@ -18,33 +18,29 @@ Background tasks that execute orders in realtime. Uses AWS SQS with Celery to ex
 - [Python 3.8](https://www.python.org/downloads/)
 - [Pipenv](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
 
+### TradingView WebHook Alerts
+These are the alerts that are configured in TradingView to send webhooks to the API. The alerts are configured to send a POST request to the API with the following JSON payload.
+```{
+    "action": "{{strategy.order.action}}",
+    "alert_message": "{{strategy.order.alert_message}}",
+    "close": "{{close}}",
+    "comment": "{{strategy.order.comment}}",
+    "contracts": "{{strategy.order.contracts}}",
+    "exchange": "{{exchange}}",
+    "high": "{{high}}",
+    "id": "{{strategy.order.id}}",
+    "interval": "{{interval}}",
+    "low": "{{low}}",
+    "open": "{{open}}",
+    "position_size": "{{strategy.position_size}}",
+    "prev_market_position": "{{strategy.prev_market_position}}",
+    "prev_market_position_size": "{{strategy.prev_market_position_size}}",
+    "price": "{{strategy.order.price}}",
+    "ticker": "{{ticker}}",
+    "time": "{{time}}",
+    "signature": "REPLACE_ME"
+}
+```
+the `signature` field is a HMAC signature of the payload using the secret key. The secret key is stored in AWS Secrets Manager and is used to verify the payload is coming from TradingView.
 
-python -m pip install awscli
-
-curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux && chmod +x copilot && sudo mv copilot /usr/local/bin/copilot && copilot --help
-
-
-Here's how you can create a new IAM user and grant it permissions to assume the role:
-
-    Create a new IAM user:
-
-    Create an access key for the new user:
-
-This command returns an Access Key ID and Secret Access Key. Make sure to save these values as you'll need them to configure your AWS CLI.
-
-    Grant the user permissions to assume the role. First, create a policy that allows the user to assume the role. Save the following policy in a file named assume-role-policy.json:
-
-Replace 123456789012 with your AWS account ID.
-
-    Create the policy in IAM:
-
-This command returns a policy ARN.
-
-    Attach the policy to the user:
-
-Replace 123456789012 with your AWS account ID.
-
-Now, you can configure y
-aws iam create-role --role-name CopilotProvisioningRole --assume-role-policy-document file://trust-policy.json
-
-aws iam attach-role-policy --role-name CopilotProvisioningRole --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+You paste this JSON into the alert settings "Message" field in TradingView. You will also need to directly edit the "Webhook URL" field in TradingView to include the name of the endpoint you want to trigger. The URL should look like this: `https://api.example.com/webhooks/endpoint-name/`. The endpoint name is the name of the endpoint you want to trigger. For example, if you want to trigger the `buy` endpoint, the URL would be `https://api.example.com/webhooks/buy/`.
