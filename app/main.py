@@ -219,6 +219,10 @@ def order():
 
             return jsonify(error_message), 400
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return "Healthy", 200
+
 # Add app.route for 404 page
 @app.errorhandler(404)
 def page_not_found(e):
