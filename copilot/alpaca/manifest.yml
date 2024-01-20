@@ -3,7 +3,7 @@ type: Load Balanced Web Service
 
 http:
   path: '/'
-  healthcheck: '/'
+  #healthcheck: '/'
 
 image:
   build: Dockerfile
