@@ -21,11 +21,15 @@ storage:
   readonly_fs: true
 
 secrets:
-  TEST: TEST
-
-# You can override any of the values defined above by environment.
-#environments:
-#  test:
-#    count: 2               # Number of tasks to run for the "test" environment.
-#    deployment:            # The deployment strategy for the "test" environment.
-#       rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
+  APCA_API_KEY_ID:
+    secretsmanager: 'gigakitty/alpaca/dev:APCA_API_KEY_ID::'
+  APCA_API_SECRET_KEY:
+    secretsmanager: 'gigakitty/alpaca/dev:APCA_API_SECRET_KEY::'
+  TRADINGVIEW_SECRET:
+    secretsmanager: 'gigakitty/alpaca/dev:TRADINGVIEW_SECRET::'
+  LIFX_TOKEN:
+    secretsmanager: 'gigakitty/alpaca/dev:LIFX_TOKEN::'
+  OPENAI_API_KEY:
+    secretsmanager: 'gigakitty/alpaca/dev:OPENAI_API_KEY::'
+  TEST:
+    secretsmanager: 'gigakitty/alpaca/dev:TEST::'
