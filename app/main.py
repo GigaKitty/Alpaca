@@ -221,7 +221,7 @@ def order():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return render_template('health.html'), 420004
+    return render_template('health.html'), 200
 
 # Add app.route for 404 page
 @app.errorhandler(404)
