@@ -43,11 +43,9 @@ def validate_signature(data):
     We can further improve upon this by validating the request is legitimately coming from TradingView using SSL and/or at least IP
     """
     if (signature != data.get('signature')):
-        error_message = {"error": "Signature Failed to Authorize"}
-        return jsonify(error_message), 400
+        return redirect('/404')  # Redirect to the 404 page
     else:
         return True
-
 
 def generate_order_id(data, length=10):
     """
@@ -171,7 +169,7 @@ def order():
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
     data = sync_data(request.json)
-
+    
     if (validate_signature(data) == True):
         try:
             action = data.get('action')
@@ -221,6 +219,8 @@ def order():
 
             return jsonify(error_message), 400
 
+# Add app.route for 404 page
+@app.errorhandler(404)
 
 @app.before_request
 def log_request_info():
