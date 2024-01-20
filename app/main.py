@@ -221,6 +221,9 @@ def order():
 
 # Add app.route for 404 page
 @app.errorhandler(404)
+def page_not_found(e):
+    return "<h1>404</h1><p>The resource could not be found.</p>", 404
+
 
 @app.before_request
 def log_request_info():
