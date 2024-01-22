@@ -30,5 +30,3 @@ secrets:
     secretsmanager: 'gigakitty/alpaca/dev:LIFX_TOKEN::'
   OPENAI_API_KEY:
     secretsmanager: 'gigakitty/alpaca/dev:OPENAI_API_KEY::'
-  TEST:
-    secretsmanager: 'gigakitty/alpaca/dev:TEST::'

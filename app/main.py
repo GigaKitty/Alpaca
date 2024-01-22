@@ -113,7 +113,41 @@ def calc_buying_power():
 
 
 def calc_contract_size(data):
-    return 1
+    """
+    Dumb way to calculate contract size based on interval.
+    Lower contract(s) for lower intervals so minimize risk and orders cross comtaminating into losses.
+    # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
+    # @WHY: because it's funner this way
+    """
+    buying_power = calc_buying_power()
+    print(buying_power)
+    #    one_percent = buying_power * 0.01
+    #
+    #    print("1% of", buying_power, "is:", one_percent)
+    #
+    #    # get share_price
+    #    contracts = one_percent / date.get('price')
+    #
+    #    print(contracts)
+    #
+    if (data.get('interval') == 'S'):
+        contracts = 2
+    elif (data.get('interval') in ['1S', '5S', '30S']):
+        contracts = 3
+    elif (data.get('interval') == '1'):
+        contracts = 5
+    elif (data.get('interval') == '5'):
+        contracts = 8
+    elif (data.get('interval') == '15'):
+        contracts = 13
+    elif (data.get('interval') == '30'):
+        contracts = 21
+    elif (data.get('interval') == '1H'):
+        contracts = 34
+    else:
+        contracts = 1
+
+    return contracts
 
 
 def get_position(data):
