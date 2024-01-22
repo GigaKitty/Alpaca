@@ -29,7 +29,7 @@ def check_paper_environment():
 paper = check_paper_environment()
 
 api = TradingClient(os.getenv('APCA_API_KEY_ID'),
-                    os.getenv('APCA_API_SECRET_KEY'), paper=check_paper_environment)
+                    os.getenv('APCA_API_SECRET_KEY'), paper=paper)
 
 signature = os.getenv('TRADINGVIEW_SECRET')
 
@@ -138,21 +138,28 @@ def smash_or_pass(data, position):
     profit returns a +/- number
     """
     profit = math.copysign(1, float(position.unrealized_pl))
+    print(float(position.unrealized_pl))
+    print(f"Profit: {profit}")
+    print(f"Position: {position}")
+
 
     if data.get('action') == 'buy':
         action = 'long'
     else:
         action = 'short'
 
-    if (profit <= 0 and position.side == action):
+    # make position.side lowercase for comparison with action
+    side = position.side.lower()
+        
+    if (profit <= 0 and side == action):
         print(position.unrealized_pl)
         print("Buy more to creep!")
         return True
-    elif (profit <= 0 and position.side != action):
+    elif (profit <= 0 and side != action):
         print(position.unrealized_pl)
         print("Skip")
         return False
-    elif (profit >= 1 and position.side != action):
+    elif (position.unrealized_pl >= 1 and side != action):
         print('Close & Continue')
         api.close_position(data.get('ticker'))
         print('Closed positions')
@@ -186,13 +193,16 @@ def order():
 
             # Setup position
             position = get_position(data)
+            print(f"Position: {position}")
+            
             if position is not False:
                 sp = smash_or_pass(data, position)
             else:
                 sp = True
 
-            if sp is True and action == position.side:
-                print(f"Placing ${order_id} ${action} order for {contracts} contracts on ${ticker} @ ${price}USD ")
+            
+            if sp is True:
+                print(f"Placing ${order_id} {action} order for {contracts} contracts on ${ticker} @ ${price}USD ")
                 market_order_data = MarketOrderRequest(
                     symbol=ticker,
                     qty=contracts,
@@ -235,4 +245,4 @@ def log_request_info():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=paper)
