@@ -14,7 +14,7 @@ import requests
 import string
 
 
-
+# Check if we're in paper or main i.e. dev or prod
 def check_paper_environment():
     """
     Add a function that checks COPILOT_ENVIRONMENT_NAME and sets paper=True if it's not main and false if it is
@@ -35,7 +35,8 @@ signature = os.getenv('TRADINGVIEW_SECRET')
 
 app = Flask(__name__)
 
-
+# Validates the signature from TradingView
+# @TODO: This should be updated to check SSL and/or IP so we can remove signature from the webhook
 def validate_signature(data):
     """
     Validates a simple field value in the webhook to continue processing webhook otherwise fails.
@@ -46,7 +47,8 @@ def validate_signature(data):
         return redirect('/404')  # Redirect to the 404 page
     else:
         return True
-
+    
+# Generates a unique order id based on interval and strategy coming from the webhook
 def generate_order_id(data, length=10):
     """
     Creates a unique order id based on interval and strategy coming from the webhook
@@ -59,7 +61,7 @@ def generate_order_id(data, length=10):
     order_id = [comment, interval, order_rand]
     return "-".join(order_id)
 
-
+# Syncs the clock so that we don't get an error from the data request
 def sync_data(data):
     """
     Sync the clock so that we don't get an error from the data request.
@@ -69,35 +71,35 @@ def sync_data(data):
     data = request.json
     return data
 
-
+# Calculates the price based on the price
 def calc_price(price):
     """
     Convert to decimal obviously
     """
     return Decimal(price)
 
-
+# Calculates the limit price based on the price
 def calc_limit_price(price):
     """
     @TODO: make the arg calc the tolerance
     """
     return float(price) * 0.998
 
-
+# Calculates the profit price based on the price
 def calc_profit_price(price):
     """
     @TODO: make the arg calc the tolerance
     """
     return float(price) * 1.001
 
-
+# Calculates the stop price based on the price
 def calc_stop_price(price):
     """
     @TODO: make the arg calc the tolerance
     """
     return float(price) * 0.999
 
-
+# Calculates the buying power for the account
 def calc_buying_power():
     # Get our account information.
     account = api.get_account()
@@ -111,16 +113,15 @@ def calc_buying_power():
     
     return account.buying_power
 
-
+# Calculates the contract size based on interval and buying power
 def calc_contract_size(data):
     """
     Dumb way to calculate contract size based on interval.
     Lower contract(s) for lower intervals so minimize risk and orders cross comtaminating into losses.
     # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
-    # @WHY: because it's funner this way
+    # @WHY: because it needs a better implementation like checking the strategy and calculating the risk tolerance
     """
     buying_power = calc_buying_power()
-    print(buying_power)
     #    one_percent = buying_power * 0.01
     #
     #    print("1% of", buying_power, "is:", one_percent)
@@ -149,7 +150,7 @@ def calc_contract_size(data):
 
     return contracts
 
-
+# Gets currently open position for ticker
 def get_position(data):
     """
     Checks the position of the current ticker
