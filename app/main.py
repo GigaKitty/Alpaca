@@ -124,13 +124,13 @@ def get_position(data):
         return False
 
 
-def smash_or_pass(data, position):
+def analyze_position(data, position):
     """
     Gives the hook an opportunity to justify the order or not.
     Basically if we're already in a position and there's no profit.
     Then stay in position but buy more at same side and don't switch.
 
-    If there's no profit and the action isn't the same then we skip for better trades.
+    If there's no profit and the action isn't the same then we skip for same side trades.
     """
     """
     profit returns a +/- number
@@ -140,7 +140,7 @@ def smash_or_pass(data, position):
     print(f"Profit: {profit}")
     print(f"Position: {position}")
 
-
+    # match naming convention of action
     if data.get('action') == 'buy':
         action = 'long'
     else:
@@ -148,20 +148,24 @@ def smash_or_pass(data, position):
 
     # make position.side lowercase for comparison with action
     side = position.side.lower()
-        
+
+    # if we're in a position and there's no profit then we need to buy more  
     if (profit <= 0 and side == action):
         print(position.unrealized_pl)
         print("Buy more to creep!")
         return True
+    # if we're in a position and there's no profit and the action is not the same to side then we skip
     elif (profit <= 0 and side != action):
         print(position.unrealized_pl)
         print("Skip")
         return False
+    # if we're in a position and there's profit and the action is not the same to side then we close and continue
     elif (position.unrealized_pl >= 1 and side != action):
         print('Close & Continue')
         api.close_position(data.get('ticker'))
         print('Closed positions')
         return True
+    # all else return true
     else:
         print("Continue")
         return True
@@ -202,17 +206,17 @@ def order():
             #  Setup Price
             price = calc_price(data.get('price'))
 
-            # Setup position
+            # check if there's a current position
             position = get_position(data)
-            print(f"Position: {position}")
             
+            # if we have a position then we need to figure out what to do with it.
             if position is not False:
-                sp = smash_or_pass(data, position)
+                ap = analyze_position(data, position)
             else:
-                sp = True
+                ap = True
 
             
-            if sp is True:
+            if ap is True:
                 print(f"Placing ${order_id} {action} order for {contracts} contracts on ${ticker} @ ${price}USD ")
                 market_order_data = MarketOrderRequest(
                     symbol=ticker,
