@@ -113,43 +113,6 @@ def calc_buying_power():
     
     return account.buying_power
 
-# Calculates the contract size based on interval and buying power
-def calc_contract_size(data):
-    """
-    Dumb way to calculate contract size based on interval.
-    Lower contract(s) for lower intervals so minimize risk and orders cross comtaminating into losses.
-    # @SEE: https://en.wikipedia.org/wiki/Fibonacci_sequence
-    # @WHY: because it needs a better implementation like checking the strategy and calculating the risk tolerance
-    """
-    buying_power = calc_buying_power()
-    #    one_percent = buying_power * 0.01
-    #
-    #    print("1% of", buying_power, "is:", one_percent)
-    #
-    #    # get share_price
-    #    contracts = one_percent / date.get('price')
-    #
-    #    print(contracts)
-    #
-    if (data.get('interval') == 'S'):
-        contracts = 2
-    elif (data.get('interval') in ['1S', '5S', '30S']):
-        contracts = 3
-    elif (data.get('interval') == '1'):
-        contracts = 5
-    elif (data.get('interval') == '5'):
-        contracts = 8
-    elif (data.get('interval') == '15'):
-        contracts = 13
-    elif (data.get('interval') == '30'):
-        contracts = 21
-    elif (data.get('interval') == '1H'):
-        contracts = 34
-    else:
-        contracts = 1
-
-    return contracts
-
 # Gets currently open position for ticker
 def get_position(data):
     """
@@ -202,6 +165,19 @@ def smash_or_pass(data, position):
     else:
         print("Continue")
         return True
+    
+# Add a def that checks all profitable open positions and closes them
+# @TODO: #8 convert this into a cron celery task
+def close_profitable_positions():
+    """
+    Checks all profitable open positions and closes them
+    """
+    positions = api.list_positions()
+    for position in positions:
+        if position.unrealized_pl > 0:
+            print(f"Closing {position.symbol} for {position.unrealized_pl}")
+            api.close_position(position.symbol)
+
 
 # @TODO: change alpaca_market_order to market_order
 @app.route('/alpaca_market_order', methods=['POST'])
@@ -215,7 +191,6 @@ def order():
     if (validate_signature(data) == True):
         try:
             action = data.get('action')
-            #contracts = calc_contract_size(data)
             contracts = data.get('contracts')
             order_id = generate_order_id(data, 10)
             ticker = data.get('ticker')
