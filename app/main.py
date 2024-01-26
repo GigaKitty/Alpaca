@@ -215,7 +215,8 @@ def order():
     if (validate_signature(data) == True):
         try:
             action = data.get('action')
-            contracts = calc_contract_size(data)
+            #contracts = calc_contract_size(data)
+            contracts = data.get('contracts')
             order_id = generate_order_id(data, 10)
             ticker = data.get('ticker')
             # supports ioc|gtc
