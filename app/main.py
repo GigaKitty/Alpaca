@@ -203,7 +203,7 @@ def smash_or_pass(data, position):
         print("Continue")
         return True
 
-
+# @TODO: change alpaca_market_order to market_order
 @app.route('/alpaca_market_order', methods=['POST'])
 def order():
     """

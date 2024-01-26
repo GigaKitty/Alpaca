@@ -4,6 +4,7 @@ type: Load Balanced Web Service
 http:
   path: '/'
   healthcheck: '/health'
+  interval: 1h
 
 image:
   build: Dockerfile
