@@ -183,7 +183,7 @@ def close_profitable_positions():
             api.close_position(position.symbol)
 
 
-# @TODO: change alpaca_market_order to market_order
+# @TODO: #9 change alpaca_market_order to market_order
 @app.route('/alpaca_market_order', methods=['POST'])
 def order():
     """
