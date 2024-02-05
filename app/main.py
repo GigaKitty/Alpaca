@@ -135,7 +135,10 @@ def analyze_position(data, position):
     """
     profit returns a +/- number
     """
-    profit = math.copysign(1, float(position.unrealized_pl))
+    profit = float(position.unrealized_pl)
+    # make position.side lowercase for comparison with action
+    side = position.side.lower()
+
     print(float(position.unrealized_pl))
     print(f"Profit: {profit}")
     print(f"Position: {position}")
@@ -145,9 +148,6 @@ def analyze_position(data, position):
         action = 'long'
     else:
         action = 'short'
-
-    # make position.side lowercase for comparison with action
-    side = position.side.lower()
 
     # if we're in a position and there's no profit then we need to buy more  
     if (profit <= 0 and side == action):
@@ -160,7 +160,7 @@ def analyze_position(data, position):
         print("Skip")
         return False
     # if we're in a position and there's profit and the action is not the same to side then we close and continue
-    elif (position.unrealized_pl >= 1 and side != action):
+    elif (profit >= 1 and side != action):
         print('Close & Continue')
         api.close_position(data.get('ticker'))
         print('Closed positions')
@@ -184,6 +184,10 @@ def close_profitable_positions():
 
 
 # @TODO: #9 change alpaca_market_order to market_order
+@app.route('/average', methods=['POST'])
+def average():
+    order()
+
 @app.route('/alpaca_market_order', methods=['POST'])
 def order():
     """
@@ -198,8 +202,7 @@ def order():
             contracts = data.get('contracts')
             order_id = generate_order_id(data, 10)
             ticker = data.get('ticker')
-            # supports ioc|gtc
-            time_in_force = "ioc"
+            time_in_force = "ioc" # supports ioc|gtc
 
             print(f"Data: {data}")
 
@@ -208,16 +211,16 @@ def order():
 
             # check if there's a current position
             position = get_position(data)
-            
+            ##########################################
+            order_type
             # if we have a position then we need to figure out what to do with it.
             if position is not False:
                 ap = analyze_position(data, position)
             else:
                 ap = True
-
-            
+    
             if ap is True:
-                print(f"Placing ${order_id} {action} order for {contracts} contracts on ${ticker} @ ${price}USD ")
+                print(f"Placing {order_id} {action} order for {contracts} contracts on ${ticker} @ ${price}USD ")
                 market_order_data = MarketOrderRequest(
                     symbol=ticker,
                     qty=contracts,
@@ -230,11 +233,8 @@ def order():
                     order_data=market_order_data
                 )
                 print(market_order)
-            else:
-                print(f"Skipping the order of {contracts} @ ${price}USD ")
-
-            response_data = {
-                "message": "Webhook received and processed successfully"}
+            ############################################################################
+            response_data = {"message": "Webhook received and processed successfully"}
 
             return jsonify(response_data), 200
 
@@ -244,6 +244,7 @@ def order():
 
             return jsonify(error_message), 400
 
+# Add app.route for health check
 @app.route('/health', methods=['GET'])
 def health_check():
     return render_template('health.html'), 200
@@ -253,11 +254,14 @@ def health_check():
 def page_not_found(e):
     return render_template('404.html'), 404
 
+# @TODO: add ssl and signature validation
 @app.before_request
 def log_request_info():
     app.logger.debug('Headers: %s', request.headers)
     app.logger.debug('Body: %s', request.get_data())
-
+    # SSL check that request is coming from tradingview
+    
+    # Signature check that request is coming from tradingview
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=paper)
