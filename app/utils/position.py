@@ -63,3 +63,13 @@ def close_profitable():
         if position.unrealized_pl > 10:
             print(f"Closing {position.symbol} for {position.unrealized_pl}")
             api.close_position(position.symbol)
+
+def close_profitable_positions():
+    """
+    Checks all profitable open positions and closes them
+    """
+    positions = api.list_positions()
+    for position in positions:
+        if position.unrealized_pl > 10:
+            print(f"Closing {position.symbol} for {position.unrealized_pl}")
+            api.close_position(position.symbol)

@@ -3,7 +3,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest, TrailingStopOrderRequest
 from botocore.exceptions import ClientError
 from decimal import Decimal
-from flask import Flask, request, jsonify, json, render_template
+from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 
 
 import boto3
@@ -27,20 +27,6 @@ def check_paper_environment():
     else:
         return False
 
-
-# Validates the signature from TradingView
-# @TODO: This should be updated to check SSL and/or IP so we can remove signature from the webhook
-def validate_signature(data):
-    """
-    Validates a simple field value in the webhook to continue processing webhook otherwise fails.
-    This isn't the most elegant solution but it adds some safety controls to arbitrary requests.
-    We can further improve upon this by validating the request is legitimately coming from TradingView using SSL and/or at least IP
-    """
-    if (signature != data.get('signature')):
-        return redirect('/404')  # Redirect to the 404 page
-    else:
-        return True
-
 paper = check_paper_environment()
 
 api = TradingClient(os.getenv('APCA_API_KEY_ID'),
@@ -48,6 +34,7 @@ api = TradingClient(os.getenv('APCA_API_KEY_ID'),
 
 signature = os.getenv('TRADINGVIEW_SECRET')
 
+orders = Blueprint('orders', __name__)
 app = Flask(__name__)
 
 # Validates the signature from TradingView
@@ -185,20 +172,36 @@ def analyze_position(data, position):
         print("Continue")
         return True
 
-def close_profitable_positions():
-    """
-    Checks all profitable open positions and closes them
-    """
-    positions = api.list_positions()
-    for position in positions:
-        if position.unrealized_pl > 10:
-            print(f"Closing {position.symbol} for {position.unrealized_pl}")
-            api.close_position(position.symbol)
 
-# @TODO: #9 change alpaca_market_order to market_order
-@app.route('/average', methods=['POST'])
-def average():
-    order()
+@orders.before_request
+def preprocess():
+    api.get_clock()
+    data = request.json
+
+    if (validate_signature(data) != True):
+        return jsonify({"error": "Failed to process signature"}), 400
+    
+    position = get_position(data)
+    if position is not False:
+        ap = analyze_position(data, position)
+    else:
+        ap = True
+
+    g.ap = ap
+    g.data = data
+
+# Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
+@orders.route('/notional', methods=['POST'])
+def notional():
+    market_order_data = MarketOrderRequest(
+        order = api.submit_order(
+        symbol=g.data.get('ticker'),
+        notional=g.data.get('notional'),
+        side=g.data.get('action'),
+        type='market',
+        time_in_force='day'
+    )
+    return order
 
 @app.route('/alpaca_market_order', methods=['POST'])
 def order():
@@ -265,14 +268,10 @@ def health_check():
 def page_not_found(e):
     return render_template('404.html'), 404
 
-# @TODO: add ssl and signature validation
 @app.before_request
 def log_request_info():
-    app.logger.debug('Headers: %s', request.headers)
-    app.logger.debug('Body: %s', request.get_data())
-    # SSL check that request is coming from tradingview
-    
-    # Signature check that request is coming from tradingview
+    #app.logger.debug('Headers: %s', request.headers)
+    #app.logger.debug('Body: %s', request.get_data())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=paper)
