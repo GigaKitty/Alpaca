@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from decimal import Decimal
 from flask import Flask, request, jsonify, json, render_template
 
+
 import boto3
 import json
 import math
@@ -25,6 +26,20 @@ def check_paper_environment():
         return True
     else:
         return False
+
+
+# Validates the signature from TradingView
+# @TODO: This should be updated to check SSL and/or IP so we can remove signature from the webhook
+def validate_signature(data):
+    """
+    Validates a simple field value in the webhook to continue processing webhook otherwise fails.
+    This isn't the most elegant solution but it adds some safety controls to arbitrary requests.
+    We can further improve upon this by validating the request is legitimately coming from TradingView using SSL and/or at least IP
+    """
+    if (signature != data.get('signature')):
+        return redirect('/404')  # Redirect to the 404 page
+    else:
+        return True
 
 paper = check_paper_environment()
 
@@ -169,19 +184,16 @@ def analyze_position(data, position):
     else:
         print("Continue")
         return True
-    
-# Add a def that checks all profitable open positions and closes them
-# @TODO: #8 convert this into a cron celery task
+
 def close_profitable_positions():
     """
     Checks all profitable open positions and closes them
     """
     positions = api.list_positions()
     for position in positions:
-        if position.unrealized_pl > 0:
+        if position.unrealized_pl > 10:
             print(f"Closing {position.symbol} for {position.unrealized_pl}")
             api.close_position(position.symbol)
-
 
 # @TODO: #9 change alpaca_market_order to market_order
 @app.route('/average', methods=['POST'])
@@ -212,7 +224,6 @@ def order():
             # check if there's a current position
             position = get_position(data)
             ##########################################
-            order_type
             # if we have a position then we need to figure out what to do with it.
             if position is not False:
                 ap = analyze_position(data, position)
