@@ -4,7 +4,7 @@ def get(data):
     Checks the position of the current ticker
     """
     try:
-        return api.get_open_position(data.get('ticker'))
+        return g.api.get_open_position(data.get("ticker"))
     except Exception as e:
         return False
 
