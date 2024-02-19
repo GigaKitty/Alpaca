@@ -1,11 +1,29 @@
 # Alpaca
-Portable collection of tools for Alpaca trading that deploy to AWS ECS using Copilot.
+Portable collection of microservices for Alpaca trading that deploy to AWS ECS using Copilot. Services are split into different tools and strategies for trading. Some services talk to other services, while others are standalone. The project currently uses copilot to deploy microservices so they are easy to manage and scale.
 
-## Webhooks/API
-Endpoints for TradingView webhooks to execute orders on Alpaca. Each endpoint is a different strategy that can be used to execute orders.
+## Application
+The project consists of a single application "Alpaca" that make up the project. 
 
-## Tasks
-Background tasks that execute orders in realtime. Uses AWS SQS with Celery to execute tasks. Some tasks are just background tasks that run continuously, while others are triggered on a schedule.
+## Services
+AWS copilot services are broken down into microservice architecture having each it's own responsibility. The services are as follows:
+
+### pacapredictor
+A service that uses a machine learning model to predict the price of a stock. The model is trained on historical data and uses a LSTM neural network to make predictions. The service is used to predict the price of a stock at a given time and is used to make trading decisions.
+
+### queuecria
+A service that listens to a queue and executes worker tasks. It is used to execute tasks that are triggered by a schedule or by a queue.
+
+### redditspreadit
+Scans reddit and performs a simple sentiment scoring to buy/sell assets.
+
+### scalapaca
+Service that produces HFTesque scalp trades.
+
+### sentimentsheperd
+Uses chatgpt to analyze sentiment of news articles and social media posts. These are fed via websockets to deliver realtime data for the bot to score and ultimately make trading decisions based on the feeds coming in.
+
+### signalspit
+TradingView webhook processing service. This service listens for webhooks from TradingView and executes orders based on the payload. Different strategies and order types can be used to execute orders on different endpoints.
 
 ## Deploying
 

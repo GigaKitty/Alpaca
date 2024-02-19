@@ -11,7 +11,7 @@ EXPOSE 5000
 
 WORKDIR /app
 
-COPY ./app/ /app/
+COPY ./ /app/
 
 RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
 

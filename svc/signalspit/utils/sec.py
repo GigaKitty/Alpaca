@@ -12,9 +12,17 @@ def validate_signature(data):
     We can further improve upon this by validating the request is legitimately coming from TradingView using SSL and/or at least IP
     Set the environment variable TRADINGVIEW_SECRET to the secret key from TradingView
     """
-    signature = os.getenv("TRADINGVIEW_SECRET")
+    signature = os.getenv("TRADINGVIEW_SECRET", "thisisnotasecret")
+
+    # Check if data is a dictionary
+    if not isinstance(data, dict):
+        return render_template("404.html"), 404
+
+    # Check if data contains a "signature" key
+    if "signature" not in data:
+        return render_template("404.html"), 404
 
     if signature != data.get("signature"):
-        return redirect("/404")  # Redirect to the 404 page
+        return render_template("404.html"), 404
     else:
         return True
