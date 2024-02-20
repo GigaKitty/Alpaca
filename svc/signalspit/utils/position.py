@@ -30,7 +30,6 @@ def anal(api, data, pos):
     profit returns a +/- number
     """
     profit = float(pos.unrealized_pl)
-
     # make position.side lowercase for comparison with action returns logn or short
     side = pos.side.lower()
 
@@ -51,7 +50,7 @@ def anal(api, data, pos):
         print("Skip for same side trades")
         return False
     # if we're in a position and there's profit and the action is not the same to side then we close and continue
-    elif profit >= 1 and side != action:
+    elif profit >= data.get("threshold") and side != action:
         print(f"Closing position {pos.symbol}")
         api.close_position(pos.symbol)
         print(f"Closed position {pos.symbol}")

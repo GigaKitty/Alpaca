@@ -62,3 +62,4 @@ These are the alerts that are configured in TradingView to send webhooks to the 
 the `signature` field is a HMAC signature of the payload using the secret key. The secret key is stored in AWS Secrets Manager and is used to verify the payload is coming from TradingView.
 
 You paste this JSON into the alert settings "Message" field in TradingView. You will also need to directly edit the "Webhook URL" field in TradingView to include the name of the endpoint you want to trigger. The URL should look like this: `https://api.example.com/webhooks/endpoint-name/`. The endpoint name is the name of the endpoint you want to trigger. For example, if you want to trigger the `buy` endpoint, the URL would be `https://api.example.com/webhooks/buy/`.
+

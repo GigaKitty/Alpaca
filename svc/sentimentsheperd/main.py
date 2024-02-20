@@ -116,9 +116,7 @@ async def prompt_gpt(assistant, thread, data):
     print("Processing complete!")
 
     return
-    #  print(client)
-    #  print(assistant)
-    #  print(thread)
+
     message = client.beta.threads.messages.create(
         thread_id=thread.id, role="user", content=data
     )
@@ -128,12 +126,12 @@ async def prompt_gpt(assistant, thread, data):
     )
 
     # Wait for completion
-    wait_on_run(run, thread)
+    # wait_on_run(run, thread)
 
     # Retrieve all the messages added after our last user message
-    messages = client.beta.threads.messages.list(
-        thread_id=thread.id, order="asc", after=message.id
-    )
+    # messages = client.beta.threads.messages.list(
+    #     thread_id=thread.id, order="asc", after=message.id
+    # )
 
     print(run)
 
