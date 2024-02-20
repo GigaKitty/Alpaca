@@ -58,7 +58,7 @@ def notional():
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
     # Check if we should process the request
-    if g.ap is True:
+    if g.data.get("sp") is True:
         try:
             market_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
@@ -87,7 +87,7 @@ def market():
     Places a simple market order or BUY or SELL based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
-    if g.ap is True:
+    if g.data.get("sp") is True:
         try:
             market_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
@@ -139,18 +139,18 @@ def preprocess():
     g.data["order_id"] = order_id
 
     # This is a dollar amount selloff threshold that we would like to make before exiting.
-    threshold = g.data.get("threshold", 10)
+    g.data["threshold"] = g.data.get("threshold", 10)
 
     # If we have a position we need to analyze it and make sure it's on the side we want
     if pos is not False:
-        g.ap = position.anal(api, g.data, pos)
+        g.data["sp"] = position.anal(api, g.data, pos)
     # If we don't have a position then we can check if there's a preference for buy/sell & short/long and act accordingly
     elif pos is False and hasattr(g.data, "preference"):
         if g.data.get("preference") == g.data.get("action"):
-            g.ap = True
+            g.data["sp"] = True
     # If we don't have a position and there's no preference then we can set the g.ap to True
     else:
-        g.ap = True
+        g.data["sp"] = True
 
     app.logger.debug("Data: %s", g.data)
     app.logger.debug("AP: %s", g.ap)

@@ -31,12 +31,13 @@ jobs:
           chmod +x copilot
           sudo mv copilot /usr/local/bin/copilot
 
-      - name: Dev
-        if: github.ref == 'refs/heads/dev'
+      - name: Deploy changed services
         run: |
-          copilot svc deploy --name alpaca --env dev
-
-      - name: Main
-        if: github.ref == 'refs/heads/main'
-        run: |
-          copilot svc deploy --name alpaca --env main
+          changed_services=$(git diff --name-only HEAD HEAD~1 | grep '^svc/' | awk -F/ '{print $2}' | uniq)
+          for service in $changed_services; do
+            if [ "$GITHUB_REF" == "refs/heads/dev" ]; then
+              copilot svc deploy --name $service --env dev
+            elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
+              copilot svc deploy --name $service --env main
+            fi
+          done
