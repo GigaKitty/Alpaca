@@ -17,6 +17,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        fetch-depth: 0
 
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
@@ -30,6 +31,18 @@ jobs:
           curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux
           chmod +x copilot
           sudo mv copilot /usr/local/bin/copilot
+       
+      # add step that runs on main branch only
+      - name: Prod
+        if: github.ref == 'refs/heads/main'
+        run: |
+          copilot svc deploy --name api --env prod
+
+      # add step that runs on dev branch only
+      - name: Deploy to AWS Copilot
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          copilot svc deploy --name api --env dev
 
       - name: Deploy changed services
         run: |
