@@ -17,7 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        fetch-depth: 0
+        with:
+          fetch-depth: 0
 
       - name: Login to AWS OIDC
         uses: aws-actions/configure-aws-credentials@v3
