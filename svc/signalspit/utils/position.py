@@ -26,11 +26,8 @@ def anal(api, data, pos):
 
     If there's no profit and the action isn't the same then we skip for same side trades.
     """
-    """
-    profit returns a +/- number
-    """
     profit = float(pos.unrealized_pl)
-    # make position.side lowercase for comparison with action returns logn or short
+    # make position.side lowercase for comparison with action returns long or short
     side = pos.side.lower()
 
     # match naming convention of action

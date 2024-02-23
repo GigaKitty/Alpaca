@@ -3,7 +3,7 @@ import string
 
 
 # Generates a unique order id based on interval and strategy coming from the webhook
-def generate_id(data, length=10):
+def gen_id(data, length=10):
     """
     Creates a unique order id based on interval and strategy coming from the webhook
     There is not really input validation here and could maybe use some failover but it hasn't caused any issues to date

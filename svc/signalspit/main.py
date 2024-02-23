@@ -10,8 +10,6 @@ from alpaca.trading.requests import (
 
 from botocore.exceptions import ClientError
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
-
-
 from utils import position, sec, order
 
 import boto3
@@ -50,6 +48,44 @@ orders = Blueprint("orders", __name__)
 #######################################################
 
 
+# Trailing Percent Stop Order Type
+@orders.route("/trailing", methods=["POST"])
+def trailing():
+    """
+    Places a trailing stop order based on TradingView WebHook
+    for now it only works with the trailing stop percentage
+    that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.
+    @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
+    """
+    if g.data.get("sp") is True:
+        g.data["trailing"] = g.data.get("trailing", 5)
+
+        try:
+            trailing_stop_data = TrailingStopOrderRequest(
+                symbol=g.data.get("ticker"),
+                qty=g.data.get("qty"),
+                side=g.data.get("action"),
+                time_in_force=TimeInForce.GTC,
+                trail_percent=g.data.get("trail_percent"),
+                client_order_id=g.data.get("order_id") + "_" + "trailing",
+            )
+            app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
+
+            trailing_stop_order = api.submit_order(order_data=trailing_stop_data)
+            app.logger.debug("Trailing Stop Order: %s", trailing_stop_order)
+
+            response_data = {"message": "Webhook received and processed successfully"}
+            return jsonify(response_data), 200
+
+        except Exception as e:
+            app.logger.error("Error processing request: %s", str(e))
+            error_message = {"error": "Failed to process webhook request"}
+            return jsonify(error_message), 400
+    else:
+        skip_message = {"Skip": "Skip webhook"}
+        return jsonify(skip_message), 204
+
+
 # Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
 @orders.route("/notional", methods=["POST"])
 def notional():
@@ -62,6 +98,7 @@ def notional():
         try:
             market_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
+                ####
                 notional=g.data.get("notional"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
@@ -118,9 +155,11 @@ def preprocess():
     This is to ensure consistency and to avoid losses.
     This is not intended to replace other order types like limit, stop, etc.
     But is intended to be used seperately as a tool to manage the portfolio.
+    Essentailly, it's to preprocess the Data object before it's sent to the order functions.
     """
     # Hack Time
     api.get_clock()
+
     # Set the global data to the request.json
     g.data = request.json
 
@@ -133,8 +172,9 @@ def preprocess():
     app.logger.debug("Position: %s", pos)
 
     # Generate a unique order id
-    order_id = order.generate_id(g.data, 10)
+    order_id = order.gen_id(g.data, 10)
     app.logger.debug("Order ID: %s", order_id)
+
     # Add order_id to the data object
     g.data["order_id"] = order_id
 
@@ -148,12 +188,11 @@ def preprocess():
     elif pos is False and hasattr(g.data, "preference"):
         if g.data.get("preference") == g.data.get("action"):
             g.data["sp"] = True
-    # If we don't have a position and there's no preference then we can set the g.ap to True
+    # If we don't have a position and there's no preference then we can set the g.data["sp"] to True
     else:
         g.data["sp"] = True
 
     app.logger.debug("Data: %s", g.data)
-    app.logger.debug("AP: %s", g.ap)
 
 
 # Add an orders after_request to handle postprocessing

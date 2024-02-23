@@ -1,8 +1,6 @@
-import asyncio
 import json
-import sys
-import time
 import os
+import time
 import websockets
 
 from openai import OpenAI
@@ -14,7 +12,6 @@ websocket_connected = False
 
 
 def wait_on_run(run, thread):
-
     while run.status == "queued" or run.status == "in_progress":
         run = client.beta.threads.runs.retrieve(
             thread_id=thread.id,
