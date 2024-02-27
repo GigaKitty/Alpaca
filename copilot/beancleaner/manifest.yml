@@ -1,0 +1,29 @@
+name: beancleaner
+type: Backend Service
+
+http:
+  path: "/"
+  healthcheck: "/health"
+  interval: 1h
+
+image:
+  build: ./svc/beancleaner/Dockerfile
+  port: 443
+
+cpu: 256
+memory: 512
+count: 1
+exec: false
+network:
+  connect: false
+
+storage:
+  readonly_fs: true
+
+secrets:
+  APCA_API_KEY_ID:
+    secretsmanager: "gigakitty/alpaca/dev:APCA_API_KEY_ID::"
+  APCA_API_SECRET_KEY:
+    secretsmanager: "gigakitty/alpaca/dev:APCA_API_SECRET_KEY::"
+  OPENAI_API_KEY:
+    secretsmanager: "gigakitty/alpaca/dev:OPENAI_API_KEY::"

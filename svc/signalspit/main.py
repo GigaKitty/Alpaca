@@ -1,5 +1,5 @@
 from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
+from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass, OrderType
 from alpaca.trading.requests import (
     MarketOrderRequest,
     LimitOrderRequest,
@@ -7,6 +7,7 @@ from alpaca.trading.requests import (
     StopLossRequest,
     TrailingStopOrderRequest,
 )
+
 
 from botocore.exceptions import ClientError
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
@@ -16,9 +17,9 @@ import boto3
 import json
 import os
 import random
+import random
 import requests
 import string
-import random
 import string
 
 
@@ -58,15 +59,14 @@ def trailing():
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
     if g.data.get("sp") is True:
-        g.data["trailing"] = g.data.get("trailing", 5)
-
+        g.data["trailing"] = g.data.get("trailing", 4.20)
         try:
             trailing_stop_data = TrailingStopOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
-                time_in_force=TimeInForce.GTC,
-                trail_percent=g.data.get("trail_percent"),
+                time_in_force="gtc",
+                trail_percent=4.20,
                 client_order_id=g.data.get("order_id") + "_" + "trailing",
             )
             app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
@@ -87,6 +87,7 @@ def trailing():
 
 
 # Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
+# @NOTE: some stocks and ETFs are not allowed to sell short in notional i.e. BKKT, EDIT,
 @orders.route("/notional", methods=["POST"])
 def notional():
     """
@@ -147,6 +148,10 @@ def market():
         return jsonify(skip_message), 204
 
 
+# notion validation
+# preference validation
+# qty validation
+# signature validation
 @orders.before_request
 def preprocess():
     """
@@ -171,21 +176,27 @@ def preprocess():
     pos = position.get(g.data, api)
     app.logger.debug("Position: %s", pos)
 
-    # Generate a unique order id
-    order_id = order.gen_id(g.data, 10)
-    app.logger.debug("Order ID: %s", order_id)
+    # Generate and add order_id to the g.data object
+    g.data["order_id"] = order.gen_id(g.data, 10)
+    app.logger.debug("Order ID: %s", g.data["order_id"])
 
-    # Add order_id to the data object
-    g.data["order_id"] = order_id
-
-    # This is a dollar amount selloff threshold that we would like to make before exiting.
+    # This is a percent amount selloff threshold that we would like to make before exiting.
     g.data["threshold"] = g.data.get("threshold", 10)
+
+    # Set a default qty of 10
+    g.data["qty"] = g.data.get("qty", 10)
+
+    # Set a default notional of 1000
+    g.data["notional"] = g.data.get("notional", 10)
+
+    # Set default preference to buy
+    g.data["preference"] = g.data.get("preference", "buy")
 
     # If we have a position we need to analyze it and make sure it's on the side we want
     if pos is not False:
         g.data["sp"] = position.anal(api, g.data, pos)
     # If we don't have a position then we can check if there's a preference for buy/sell & short/long and act accordingly
-    elif pos is False and hasattr(g.data, "preference"):
+    elif pos is False:
         if g.data.get("preference") == g.data.get("action"):
             g.data["sp"] = True
     # If we don't have a position and there's no preference then we can set the g.data["sp"] to True

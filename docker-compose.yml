@@ -1,0 +1,15 @@
+version: "3"
+services:
+  earningsyearner:
+    build:
+      context: ./svc/earningsyearner
+      dockerfile: ./Dockerfile
+    volumes:
+      - ./svc/earningsyearner/:/app/
+    environment:
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}

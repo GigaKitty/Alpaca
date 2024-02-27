@@ -15,8 +15,8 @@ def is_valid(value):
 
 
 def good_buy(earning):
-    eps_growth_threshold = 0.05  # 5%
-    revenue_growth_threshold = 0.03  # 3%
+    eps_growth_threshold = 0.1  # 5%
+    revenue_growth_threshold = 0.1  # 3%
 
     actual = is_valid(earning["epsActual"])
     estimate = is_valid(earning["epsEstimate"])
