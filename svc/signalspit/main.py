@@ -7,8 +7,6 @@ from alpaca.trading.requests import (
     StopLossRequest,
     TrailingStopOrderRequest,
 )
-
-
 from botocore.exceptions import ClientError
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 from utils import position, sec, order
@@ -22,9 +20,8 @@ import requests
 import string
 import string
 
-
 #######################################################
-#### ENVIRONMENT ######################################
+#### ENVIRONMENT SETUP ################################
 #######################################################
 """
  Set the environment variable COPILOT_ENVIRONMENT_NAME to main or dev
@@ -47,6 +44,35 @@ orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 #######################################################
+
+
+@orders.route("/bracket", methods=["POST"])
+def bracket():
+    # Get price of current symbol
+    # calculate percentage
+    # preparing bracket order with both stop loss and take profit
+    bracket__order_data = MarketOrderRequest(
+        symbol="SPY",
+        qty=5,
+        side=OrderSide.BUY,
+        time_in_force=TimeInForce.DAY,
+        order_class=OrderClass.BRACKET,
+        take_profit=TakeProfitRequest(400),
+        stop_loss=StopLossRequest(300),
+    )
+
+    bracket_order = trading_client.submit_order(order_data=bracket__order_data)
+
+    {
+        "side": "buy",
+        "symbol": "SPY",
+        "type": "market",
+        "qty": "100",
+        "time_in_force": "gtc",
+        "order_class": "bracket",
+        "take_profit": {"limit_price": "301"},
+        "stop_loss": {"stop_price": "299", "limit_price": "298.5"},
+    }
 
 
 # Trailing Percent Stop Order Type
@@ -99,7 +125,6 @@ def notional():
         try:
             market_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
-                ####
                 notional=g.data.get("notional"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
@@ -148,10 +173,6 @@ def market():
         return jsonify(skip_message), 204
 
 
-# notion validation
-# preference validation
-# qty validation
-# signature validation
 @orders.before_request
 def preprocess():
     """
@@ -159,8 +180,7 @@ def preprocess():
     All orders go through this preprocessor to qualify them for processing.
     This is to ensure consistency and to avoid losses.
     This is not intended to replace other order types like limit, stop, etc.
-    But is intended to be used seperately as a tool to manage the portfolio.
-    Essentailly, it's to preprocess the Data object before it's sent to the order functions.
+    Essentailly, it's to preprocess the Data object and set defaults before it's sent to the order endpoints.
     """
     # Hack Time
     api.get_clock()
@@ -176,14 +196,23 @@ def preprocess():
     pos = position.get(g.data, api)
     app.logger.debug("Position: %s", pos)
 
+    # Set a default limit price
+    g.data["limit_price"] = g.data.get("limit_price", 10)
+
+    # Set a default stop price
+    g.data["stop_price"] = g.data.get("stop_price", 10)
+
     # Generate and add order_id to the g.data object
     g.data["order_id"] = order.gen_id(g.data, 10)
     app.logger.debug("Order ID: %s", g.data["order_id"])
 
-    # This is a percent amount selloff threshold that we would like to make before exiting.
+    # % to trail on the order this can be set in the request coming from TradingView
+    g.data["trailing"] = g.data.get("trailing", 4.20)
+
+    # This is a $ amount selloff threshold that we would like to make before exiting.
     g.data["threshold"] = g.data.get("threshold", 10)
 
-    # Set a default qty of 10
+    # Set a default qty of 10 contracts
     g.data["qty"] = g.data.get("qty", 10)
 
     # Set a default notional of 1000
@@ -232,7 +261,7 @@ def log_request_info():
 
 
 #######################################################
-#### APP ##############################################
+#### APP INIT #########################################
 #######################################################
 if __name__ == "__main__":
     app.register_blueprint(orders)
