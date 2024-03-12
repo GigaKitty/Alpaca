@@ -1,6 +1,6 @@
 import os
 
-from flask import redirect
+from flask import redirect, render_template
 
 
 # Validates the signature from TradingView

@@ -17,3 +17,5 @@ COPY ./ /app/
 RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
 
 CMD ["python", "main.py"]
+
+#CMD ["celery", "-A", "worker", "worker", "--loglevel=INFO"]

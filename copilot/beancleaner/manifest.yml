@@ -21,9 +21,5 @@ storage:
   readonly_fs: true
 
 secrets:
-  APCA_API_KEY_ID:
-    secretsmanager: "gigakitty/alpaca/dev:APCA_API_KEY_ID::"
-  APCA_API_SECRET_KEY:
-    secretsmanager: "gigakitty/alpaca/dev:APCA_API_SECRET_KEY::"
-  OPENAI_API_KEY:
-    secretsmanager: "gigakitty/alpaca/dev:OPENAI_API_KEY::"
+  APCA_API_KEY_ID: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_KEY_ID
+  APCA_API_SECRET_KEY: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_SECRET_KEY

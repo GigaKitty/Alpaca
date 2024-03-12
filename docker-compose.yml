@@ -1,15 +1,45 @@
 version: "3"
 services:
-  earningsyearner:
+  earnyearn:
     build:
-      context: ./svc/earningsyearner
+      context: ./svc/earnyearn
       dockerfile: ./Dockerfile
     volumes:
-      - ./svc/earningsyearner/:/app/
+      - ./svc/earnyearn/:/app/
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
       - AWS_REGION=${AWS_REGION:-us-west-2}
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       - AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
       - ENVIRONMENT=${ENVIRONMENT:-dev}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+  sentimentsheperd:
+    build:
+      context: ./svc/sentimentsheperd
+      dockerfile: ./Dockerfile
+    volumes:
+      - ./svc/sentimentsheperd/:/app/
+    environment:
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+  signalspit:
+    build:
+      context: ./svc/signalspit
+      dockerfile: ./Dockerfile
+    volumes:
+      - ./svc/signalspit/:/app/
+    environment:
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+      - ENVIRONMENT=${ENVIRONMENT:-dev}

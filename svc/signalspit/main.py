@@ -7,11 +7,9 @@ from alpaca.trading.requests import (
     StopLossRequest,
     TrailingStopOrderRequest,
 )
-from botocore.exceptions import ClientError
+
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 from utils import position, sec, order
-
-import boto3
 import json
 import os
 import random
@@ -48,31 +46,38 @@ orders = Blueprint("orders", __name__)
 
 @orders.route("/bracket", methods=["POST"])
 def bracket():
-    # Get price of current symbol
-    # calculate percentage
-    # preparing bracket order with both stop loss and take profit
-    bracket__order_data = MarketOrderRequest(
-        symbol="SPY",
-        qty=5,
-        side=OrderSide.BUY,
-        time_in_force=TimeInForce.DAY,
-        order_class=OrderClass.BRACKET,
-        take_profit=TakeProfitRequest(400),
-        stop_loss=StopLossRequest(300),
-    )
+    if g.data.get("sp") is True:
 
-    bracket_order = trading_client.submit_order(order_data=bracket__order_data)
+        try:
+            # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
+            price = round(float(g.data.get("price")), 2)
 
-    {
-        "side": "buy",
-        "symbol": "SPY",
-        "type": "market",
-        "qty": "100",
-        "time_in_force": "gtc",
-        "order_class": "bracket",
-        "take_profit": {"limit_price": "301"},
-        "stop_loss": {"stop_price": "299", "limit_price": "298.5"},
-    }
+            bracket_order_data = MarketOrderRequest(
+                symbol=g.data.get("ticker"),
+                qty=g.data.get("qty"),
+                side=g.data.get("action"),
+                time_in_force="gtc",
+                order_class=OrderClass.BRACKET,
+                after_hours=True,
+                take_profit=TakeProfitRequest(limit_price=round(price * 1.03, 2)),
+                stop_loss=StopLossRequest(
+                    stop_price=round(price * 0.98, 2),
+                    limit_price=round(price * 0.97, 2),
+                ),
+                client_order_id=g.data.get("order_id") + "_" + "bracket",
+            )
+            app.logger.debug("Bracket Order Data: %s", bracket_order_data)
+            bracket_order = api.submit_order(order_data=bracket_order_data)
+            app.logger.debug("Bracket Order: %s", bracket_order)
+            response_data = {"message": "Webhook received and processed successfully"}
+            return jsonify(response_data), 200
+        except Exception as e:
+            app.logger.error("Error processing request: %s", str(e))
+            error_message = {"error": "Failed to process webhook request"}
+            return jsonify(error_message), 400
+    else:
+        skip_message = {"Skip": "Skip webhook"}
+        return jsonify(skip_message), 204
 
 
 # Trailing Percent Stop Order Type
@@ -85,14 +90,14 @@ def trailing():
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
     if g.data.get("sp") is True:
-        g.data["trailing"] = g.data.get("trailing", 4.20)
         try:
             trailing_stop_data = TrailingStopOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force="gtc",
-                trail_percent=4.20,
+                after_hours=True,
+                trail_percent=float(g.data.get("trailing")),
                 client_order_id=g.data.get("order_id") + "_" + "trailing",
             )
             app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
@@ -103,6 +108,43 @@ def trailing():
             response_data = {"message": "Webhook received and processed successfully"}
             return jsonify(response_data), 200
 
+        except Exception as e:
+            app.logger.error("Error processing request: %s", str(e))
+            error_message = {"error": "Failed to process webhook request"}
+            return jsonify(error_message), 400
+    else:
+        skip_message = {"Skip": "Skip webhook"}
+        return jsonify(skip_message), 204
+
+
+# order type to "wiggle" out of a position that's losing over time triggered via TradingView WebHook
+# This strategy once it's existed a position it will not enter another one.
+@orders.route("/wiggle", methods=["POST"])
+def wiggle():
+    """
+    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
+    """
+    # Get the current position for this symbol
+    pos = position.get(g.data, api)
+
+    # If we don't have a position we exit because we only wanted out and don't want back in if it receives another signal.
+    if pos is False:
+        return jsonify({"error": "No position to wiggle out of"}), 204
+
+    if g.data.get("sp") is True:
+        try:
+            market_order_data = MarketOrderRequest(
+                symbol=g.data.get("ticker"),
+                qty=g.data.get("qty"),
+                side=g.data.get("action"),
+                time_in_force=TimeInForce.DAY,
+                client_order_id=g.data.get("order_id") + "_" + "wiggle",
+            )
+            app.logger.debug("Market Data: %s", market_order_data)
+            market_order = api.submit_order(order_data=market_order_data)
+            app.logger.debug("Market Order: %s", market_order)
+            response_data = {"message": "Webhook received and processed successfully"}
+            return jsonify(response_data), 200
         except Exception as e:
             app.logger.error("Error processing request: %s", str(e))
             error_message = {"error": "Failed to process webhook request"}
@@ -128,6 +170,7 @@ def notional():
                 notional=g.data.get("notional"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
+                after_hours=True,
                 client_order_id=g.data.get("order_id") + "_" + "notional",
             )
             app.logger.debug("Market Data: %s", market_order_data)
@@ -157,6 +200,7 @@ def market():
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.IOC,
+                after_hours=True,
                 client_order_id=g.data.get("order_id") + "_" + "market",
             )
             app.logger.debug("Market Data: %s", market_order_data)
@@ -196,12 +240,6 @@ def preprocess():
     pos = position.get(g.data, api)
     app.logger.debug("Position: %s", pos)
 
-    # Set a default limit price
-    g.data["limit_price"] = g.data.get("limit_price", 10)
-
-    # Set a default stop price
-    g.data["stop_price"] = g.data.get("stop_price", 10)
-
     # Generate and add order_id to the g.data object
     g.data["order_id"] = order.gen_id(g.data, 10)
     app.logger.debug("Order ID: %s", g.data["order_id"])
@@ -218,15 +256,18 @@ def preprocess():
     # Set a default notional of 1000
     g.data["notional"] = g.data.get("notional", 10)
 
-    # Set default preference to buy
-    g.data["preference"] = g.data.get("preference", "buy")
+    # Set default preference to both user can also specify buy|sell
+    g.data["preference"] = g.data.get("preference", "both")
 
     # If we have a position we need to analyze it and make sure it's on the side we want
     if pos is not False:
         g.data["sp"] = position.anal(api, g.data, pos)
-    # If we don't have a position then we can check if there's a preference for buy/sell & short/long and act accordingly
+    # If we don't have a position then we can check if there's a preference for buy|sell|both & short|long and act accordingly
     elif pos is False:
-        if g.data.get("preference") == g.data.get("action"):
+        if (
+            g.data.get("preference") == g.data.get("action")
+            or g.data.get("preference") == "both"
+        ):
             g.data["sp"] = True
     # If we don't have a position and there's no preference then we can set the g.data["sp"] to True
     else:
