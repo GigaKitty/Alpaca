@@ -1,0 +1,13 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #170c25;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
