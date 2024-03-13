@@ -1,4 +1,6 @@
 datetime2==0.9.4
 finnhub-python==2.4.19
 websockets==10.4
-celery==5.3.6
+apscheduler==3.10.4
+pandas==2.2.1
+pandas-ta==0.3.14b

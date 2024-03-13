@@ -43,7 +43,6 @@ orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 
-
 @orders.route("/bracket", methods=["POST"])
 def bracket():
     if g.data.get("sp") is True:
@@ -59,10 +58,10 @@ def bracket():
                 time_in_force="gtc",
                 order_class=OrderClass.BRACKET,
                 after_hours=True,
-                take_profit=TakeProfitRequest(limit_price=round(price * 1.03, 2)),
+                take_profit=TakeProfitRequest(limit_price=round(price * 1.01, 2)),
                 stop_loss=StopLossRequest(
-                    stop_price=round(price * 0.98, 2),
-                    limit_price=round(price * 0.97, 2),
+                    stop_price=round(price * 0.99, 2),
+                    limit_price=round(price * 0.98, 2),
                 ),
                 client_order_id=g.data.get("order_id") + "_" + "bracket",
             )
