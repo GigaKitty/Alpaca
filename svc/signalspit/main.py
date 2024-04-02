@@ -9,7 +9,7 @@ from alpaca.trading.requests import (
 )
 
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
-from utils import position, sec, order
+from utils import position, sec, order, account
 import json
 import os
 import random
@@ -255,7 +255,9 @@ def preprocess():
     # Set a default qty of 10 contracts
     g.data["qty"] = g.data.get("qty", 10)
 
-    # Set a default notional of 1000
+    # Set a default notional of $10
+    account.get_equity(api)
+
     g.data["notional"] = g.data.get("notional", 10)
 
     # Set default preference user can also specify both|buy|sell in request

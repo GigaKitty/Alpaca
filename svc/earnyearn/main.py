@@ -10,9 +10,6 @@ import pandas_ta as ta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# from apscheduler.schedulers.blocking import BlockingScheduler
-
-
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
 auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
@@ -104,7 +101,7 @@ async def process_bar_data(data):
     # Remove open, high, low, volume from dataframe this may or may not save us some memory
     # df = df.drop(columns=["open", "high", "low", "volume", "n", "vw"])
 
-    if df["close"].isnull().values.any():
+    if df.any().isnull().values.any():
         print("DataFrame contains NaN values.")
         return
 
@@ -127,29 +124,26 @@ async def process_bar_data(data):
         # Apply MACD with default parameters (fast=12, slow=26, signal=9)
         # Check if we have enough data to calculate MACD
         if len(dataframes[symbol]) < 35:
-            # print(f"Not enough data for {symbol} to calculate MACD")
+            print(f"Not enough data to calculate MACD on {symbol}")
             # print(dataframes[symbol])
             continue
 
         macd = dataframes[symbol].ta.macd(close="close", fast=12, slow=26, signal=9)
+
         if (
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
             # this is where we sendthe we
-            print(
-                f"MACD bullish crossover for {symbol} at {group['timestamp'].iloc[-1]}"
-            )
+            print(f"MACD bullish crossover for {symbol}")
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
-            print(
-                f"MACD bearish crossover for {symbol} at {group['timestamp'].iloc[-1]}"
-            )
+            print(f"MACD bearish crossover for {symbol}")
 
+        print(macd)
         # print(dataframes[symbol])
-        # print(macd)
 
 
 # Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}

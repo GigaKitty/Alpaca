@@ -8,7 +8,7 @@ services:
       - ./svc/earnyearn/:/app/
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -23,7 +23,7 @@ services:
       - ./svc/sentimentsheperd/:/app/
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -37,7 +37,7 @@ services:
       - ./svc/signalspit/:/app/
     environment:
       - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
