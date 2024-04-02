@@ -57,7 +57,7 @@ def bracket():
                 side=g.data.get("action"),
                 time_in_force="gtc",
                 order_class=OrderClass.BRACKET,
-                after_hours=True,
+                after_hours=g.data.get("after_hours"),
                 take_profit=TakeProfitRequest(limit_price=round(price * 1.01, 2)),
                 stop_loss=StopLossRequest(
                     stop_price=round(price * 0.99, 2),
@@ -95,7 +95,7 @@ def trailing():
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force="gtc",
-                after_hours=True,
+                after_hours=g.data.get("after_hours"),
                 trail_percent=float(g.data.get("trailing")),
                 client_order_id=g.data.get("order_id") + "_" + "trailing",
             )
@@ -137,6 +137,7 @@ def wiggle():
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
+                after_hours=g.data.get("after_hours"),
                 client_order_id=g.data.get("order_id") + "_" + "wiggle",
             )
             app.logger.debug("Market Data: %s", market_order_data)
@@ -169,7 +170,7 @@ def notional():
                 notional=g.data.get("notional"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
-                after_hours=True,
+                after_hours=g.data.get("after_hours"),
                 client_order_id=g.data.get("order_id") + "_" + "notional",
             )
             app.logger.debug("Market Data: %s", market_order_data)
@@ -199,7 +200,7 @@ def market():
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.IOC,
-                after_hours=True,
+                after_hours=g.data.get("after_hours"),
                 client_order_id=g.data.get("order_id") + "_" + "market",
             )
             app.logger.debug("Market Data: %s", market_order_data)
@@ -239,6 +240,8 @@ def preprocess():
     pos = position.get(g.data, api)
     app.logger.debug("Position: %s", pos)
 
+    g.data["after_hours"] = g.data.get("after_hours", False)
+
     # Generate and add order_id to the g.data object
     g.data["order_id"] = order.gen_id(g.data, 10)
     app.logger.debug("Order ID: %s", g.data["order_id"])
@@ -255,8 +258,8 @@ def preprocess():
     # Set a default notional of 1000
     g.data["notional"] = g.data.get("notional", 10)
 
-    # Set default preference to both user can also specify buy|sell
-    g.data["preference"] = g.data.get("preference", "both")
+    # Set default preference user can also specify both|buy|sell in request
+    g.data["preference"] = g.data.get("preference", "buy")
 
     # If we have a position we need to analyze it and make sure it's on the side we want
     if pos is not False:
