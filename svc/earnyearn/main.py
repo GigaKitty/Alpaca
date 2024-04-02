@@ -19,6 +19,7 @@ auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 stream = "wss://stream.data.alpaca.markets/v2/sip"
 subs = []
 websocket_connected = False
+dataframes = {}
 
 
 async def start_scheduler():
@@ -30,8 +31,8 @@ async def start_scheduler():
         "cron",
         day_of_week="mon-fri",
         timezone="America/New_York",
-        hour="8-9",
-        minute="*/10",
+        hour="8-19",
+        minute="*/1",
     )
     scheduler.start()
 
@@ -65,34 +66,90 @@ async def fetch_earnings_calendar():
 
     else:
         print("No earnings data found for the specified date range.")
-
+    # print(subs)
     await socket(subs)
+
+# Sends a json webhook request to alpaca to place an order
+# async def order():
 
 
 async def process_bar_data(data):
+    global dataframes
     data = json.loads(data)
     # Initialize a DataFrame to store parsed data
     df = pd.DataFrame(data)
 
-    if "t" in df.columns:
+    if "S" not in df.columns:
+        return
 
-        if pd.to_numeric(df["t"], errors="coerce").notnull().all():
-            df["t"] = pd.to_datetime(df["t"])
+    #  Ensure the 'o', 'h', 'l', 'c', and 'v' columns are numeric
+    df[["o", "h", "l", "c", "v"]] = df[["o", "h", "l", "c", "v"]].apply(pd.to_numeric)
+
+    # convert t o h l c v df columns to float
+    df[["o", "h", "l", "c", "v"]] = df[["o", "h", "l", "c", "v"]].astype(float)
+
+    # this is to conform with the data structure for the MACD calculation
+    df = df.rename(
+        columns={
+            "S": "symbol",
+            "t": "timestamp",
+            "o": "open",
+            "h": "high",
+            "l": "low",
+            "c": "close",
+            "v": "volume",
+        }
+    )
+
+    # Remove open, high, low, volume from dataframe this may or may not save us some memory
+    # df = df.drop(columns=["open", "high", "low", "volume", "n", "vw"])
+
+    if df["close"].isnull().values.any():
+        print("DataFrame contains NaN values.")
+        return
+
+    for symbol, group in df.groupby("symbol"):
+        group = group.set_index(
+            "timestamp"
+        )  # Use timestamp as index for MACD calculation
+
+        # Check if the symbol already has a DataFrame
+        if symbol in dataframes:
+            # Append the new data
+            dataframes[symbol] = pd.concat([dataframes[symbol], group])
         else:
-            print("Invalid timestamps in 't' column")
-            return
+            # Create a new DataFrame for this symbol
+            dataframes[symbol] = group
 
-        # Set the 't' column as the index
-        df.set_index("t", inplace=True)
+        # Optionally, limit the size of the DataFrame to keep only recent data
+        dataframes[symbol] = dataframes[symbol].tail(3600)
+        # Check for MACD crossover
+        # Apply MACD with default parameters (fast=12, slow=26, signal=9)
+        # Check if we have enough data to calculate MACD
+        if len(dataframes[symbol]) < 35:
+            # print(f"Not enough data for {symbol} to calculate MACD")
+            # print(dataframes[symbol])
+            continue
 
-        # Ensure the 'o', 'h', 'l', 'c', and 'v' columns are numeric
-        df[["o", "h", "l", "c", "v"]] = df[["o", "h", "l", "c", "v"]].apply(
-            pd.to_numeric
-        )
+        macd = dataframes[symbol].ta.macd(close="close", fast=12, slow=26, signal=9)
+        if (
+            macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
+            and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
+        ):
+            # this is where we sendthe we
+            print(
+                f"MACD bullish crossover for {symbol} at {group['timestamp'].iloc[-1]}"
+            )
+        elif (
+            macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
+            and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
+        ):
+            print(
+                f"MACD bearish crossover for {symbol} at {group['timestamp'].iloc[-1]}"
+            )
 
-        trades_df = df.ta.macd(fast=12, slow=26, signal=9, append=True)
-
-        print(trades_df)
+        # print(dataframes[symbol])
+        # print(macd)
 
 
 # Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}
@@ -122,17 +179,13 @@ async def socket(subs):
             unsub_message = json.dumps(
                 {
                     "action": "unsubscribe",
-                    "trades": ["*"],
-                    "quotes": ["*"],
                     "bars": ["*"],
                 }
             )
             sub_message = json.dumps(
                 {
                     "action": "subscribe",
-                    "trades": subs,
-                    "quotes": subs,
-                    "bars": ["*"],
+                    "bars": subs,
                 }
             )
 
@@ -156,10 +209,10 @@ async def socket(subs):
 
 
 async def main():
-    await start_scheduler()
+    await fetch_earnings_calendar()
+    # await socket(subs)
     while True:
-        await asyncio.sleep(1)  # Sleep to keep the event loop running
-
+        await asyncio.sleep(1)  # Sleep for 1 seconds
 
 if __name__ == "__main__":
     asyncio.run(main())
