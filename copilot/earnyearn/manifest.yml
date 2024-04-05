@@ -2,8 +2,8 @@ name: earnyearn
 type: Backend Service
 
 http:
-  path: '/'
-  healthcheck: '/health'
+  path: "/"
+  healthcheck: "/health"
   interval: 1h
 
 image:
@@ -24,3 +24,5 @@ secrets:
   APCA_API_KEY_ID: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_KEY_ID
   APCA_API_SECRET_KEY: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_SECRET_KEY
   FINNHUB_API_KEY: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/FINNHUB_API_KEY
+  TRADINGVIEW_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/TRADINGVIEW_SECRET
+

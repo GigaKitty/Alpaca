@@ -9,7 +9,7 @@ from alpaca.trading.requests import (
 )
 
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
-from utils import position, sec, order, account
+from utils import position, sec, order, account, calc
 import json
 import os
 import random
@@ -43,6 +43,7 @@ orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 
+
 @orders.route("/bracket", methods=["POST"])
 def bracket():
     if g.data.get("sp") is True:
@@ -58,10 +59,12 @@ def bracket():
                 time_in_force="gtc",
                 order_class=OrderClass.BRACKET,
                 after_hours=g.data.get("after_hours"),
-                take_profit=TakeProfitRequest(limit_price=round(price * 1.01, 2)),
+                take_profit=TakeProfitRequest(
+                    limit_price=round(price * calc.limit_price(), 2)
+                ),
                 stop_loss=StopLossRequest(
-                    stop_price=round(price * 0.99, 2),
-                    limit_price=round(price * 0.98, 2),
+                    stop_price=round(calc.stop_price, 2),
+                    limit_price=round(calc.limit_price, 2),
                 ),
                 client_order_id=g.data.get("order_id") + "_" + "bracket",
             )
@@ -93,10 +96,10 @@ def trailing():
             trailing_stop_data = TrailingStopOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=g.data.get("qty"),
-                side=g.data.get("action"),
+                side=position.opps(g.data),
                 time_in_force="gtc",
                 after_hours=g.data.get("after_hours"),
-                trail_percent=float(g.data.get("trailing")),
+                trail_percent=g.data.get("trail_percent"),
                 client_order_id=g.data.get("order_id") + "_" + "trailing",
             )
             app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
@@ -107,44 +110,6 @@ def trailing():
             response_data = {"message": "Webhook received and processed successfully"}
             return jsonify(response_data), 200
 
-        except Exception as e:
-            app.logger.error("Error processing request: %s", str(e))
-            error_message = {"error": "Failed to process webhook request"}
-            return jsonify(error_message), 400
-    else:
-        skip_message = {"Skip": "Skip webhook"}
-        return jsonify(skip_message), 204
-
-
-# order type to "wiggle" out of a position that's losing over time triggered via TradingView WebHook
-# This strategy once it's existed a position it will not enter another one.
-@orders.route("/wiggle", methods=["POST"])
-def wiggle():
-    """
-    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
-    """
-    # Get the current position for this symbol
-    pos = position.get(g.data, api)
-
-    # If we don't have a position we exit because we only wanted out and don't want back in if it receives another signal.
-    if pos is False:
-        return jsonify({"error": "No position to wiggle out of"}), 204
-
-    if g.data.get("sp") is True:
-        try:
-            market_order_data = MarketOrderRequest(
-                symbol=g.data.get("ticker"),
-                qty=g.data.get("qty"),
-                side=g.data.get("action"),
-                time_in_force=TimeInForce.DAY,
-                after_hours=g.data.get("after_hours"),
-                client_order_id=g.data.get("order_id") + "_" + "wiggle",
-            )
-            app.logger.debug("Market Data: %s", market_order_data)
-            market_order = api.submit_order(order_data=market_order_data)
-            app.logger.debug("Market Order: %s", market_order)
-            response_data = {"message": "Webhook received and processed successfully"}
-            return jsonify(response_data), 200
         except Exception as e:
             app.logger.error("Error processing request: %s", str(e))
             error_message = {"error": "Failed to process webhook request"}
@@ -236,54 +201,44 @@ def preprocess():
     if sec.validate_signature(g.data) != True:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
-    # Check if we have a position
-    pos = position.get(g.data, api)
-    app.logger.debug("Position: %s", pos)
+    # Check if we have a position and an account
+    g.data["pos"] = position.get(g.data, api)
+    g.data["acc"] = account.get(g.data, api)
 
     g.data["after_hours"] = g.data.get("after_hours", False)
-
-    # Generate and add order_id to the g.data object
+    g.data["comment"] = g.data.get("comment", "nocomment")
+    g.data["interval"] = g.data.get("interval", "nointerval")
+    g.data["notional"] = g.data.get("notional", calc.notional(api))
     g.data["order_id"] = order.gen_id(g.data, 10)
-    app.logger.debug("Order ID: %s", g.data["order_id"])
+    g.data["profit"] = g.data.get("profit", calc.profit(api, g.data))
+    g.data["qty"] = g.data.get("qty", calc.qty(api))
+    g.data["side"] = g.data.get("side", calc.side(api))
 
-    # % to trail on the order this can be set in the request coming from TradingView
-    g.data["trailing"] = g.data.get("trailing", 4.20)
+    # @TODO: update this to calc
+    g.data["sp"] = g.data.get("sp", position.sp(api, g.data))
 
-    # This is a $ amount selloff threshold that we would like to make before exiting.
-    g.data["threshold"] = g.data.get("threshold", 10)
-
-    # Set a default qty of 10 contracts
-    g.data["qty"] = g.data.get("qty", 10)
-
-    # Set a default notional of $10
-    account.get_equity(api)
-
-    g.data["notional"] = g.data.get("notional", 10)
-
-    # Set default preference user can also specify both|buy|sell in request
-    g.data["preference"] = g.data.get("preference", "buy")
-
-    # If we have a position we need to analyze it and make sure it's on the side we want
-    if pos is not False:
-        g.data["sp"] = position.anal(api, g.data, pos)
-    # If we don't have a position then we can check if there's a preference for buy|sell|both & short|long and act accordingly
-    elif pos is False:
-        if (
-            g.data.get("preference") == g.data.get("action")
-            or g.data.get("preference") == "both"
-        ):
-            g.data["sp"] = True
-    # If we don't have a position and there's no preference then we can set the g.data["sp"] to True
-    else:
-        g.data["sp"] = True
+    g.data["trail_percent"] = g.data.get("trail_percent", 0.1)
+    g.data["trailing"] = g.data.get("trailing", calc.trailing(api))
+    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(api, g.data))
 
     app.logger.debug("Data: %s", g.data)
 
 
 # Add an orders after_request to handle postprocessing
-# @orders.after_request
-# def postprocess(response):
-#    return response
+@orders.after_request
+def postprocess(response):
+    # If trailing is active and we have a position then we place a traillng order for the current position size
+    if (
+        response.status_code == 200
+        and g.data.get("trailing") is True
+        and position.get(g.data, api) is not False
+    ):
+        # Gets the updated position again after new order is placed
+        g.data["pos"] = position.get(g.data, api)
+        # Trigger trailing stop order
+        trailing()
+
+    return response
 
 
 # Add app.route for health check

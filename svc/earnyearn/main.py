@@ -3,6 +3,7 @@ import finnhub
 import os
 import json
 import time
+import requests
 import websockets
 import asyncio
 import pandas as pd
@@ -12,8 +13,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
+env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
+tv_sig = os.getenv("TRADINGVIEW_SECRET")
+
 auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 stream = "wss://stream.data.alpaca.markets/v2/sip"
+
+# @TODO: Make this URL dynamic but how based on other services?
+hook_url = "https://signalspit.dev.alpaca.gigakitty.com/market"
+
 subs = []
 websocket_connected = False
 dataframes = {}
@@ -32,6 +40,27 @@ async def start_scheduler():
         minute="*/1",
     )
     scheduler.start()
+
+
+def send_order(action, symbol):
+
+    data = {
+        "action": action,
+        "comment": "macd-earnyearn",
+        "interval": "1m",
+        "signature": tv_sig,
+        "ticker": symbol,
+        "trailing": True,
+    }
+
+    # Sending a POST request with JSON data
+    response = requests.post(hook_url, json=data)
+
+    # Checking the response
+    if response.status_code == 200:
+        print("Pass", response.json())
+    else:
+        print("Fail", response.json())
 
 
 async def fetch_earnings_calendar():
@@ -63,11 +92,8 @@ async def fetch_earnings_calendar():
 
     else:
         print("No earnings data found for the specified date range.")
-    # print(subs)
-    await socket(subs)
 
-# Sends a json webhook request to alpaca to place an order
-# async def order():
+    await socket(subs)
 
 
 async def process_bar_data(data):
@@ -101,7 +127,8 @@ async def process_bar_data(data):
     # Remove open, high, low, volume from dataframe this may or may not save us some memory
     # df = df.drop(columns=["open", "high", "low", "volume", "n", "vw"])
 
-    if df.any().isnull().values.any():
+    # if any value is NaN, skip the DataFrame
+    if df.isnull().values.any():
         print("DataFrame contains NaN values.")
         return
 
@@ -134,16 +161,14 @@ async def process_bar_data(data):
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
-            # this is where we sendthe we
             print(f"MACD bullish crossover for {symbol}")
+            send_order("buy", symbol)
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD bearish crossover for {symbol}")
-
-        print(macd)
-        # print(dataframes[symbol])
+            send_order("sell", symbol)
 
 
 # Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}
@@ -207,6 +232,7 @@ async def main():
     # await socket(subs)
     while True:
         await asyncio.sleep(1)  # Sleep for 1 seconds
+
 
 if __name__ == "__main__":
     asyncio.run(main())
