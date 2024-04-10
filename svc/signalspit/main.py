@@ -83,6 +83,7 @@ def bracket():
 
 
 # Trailing Percent Stop Order Type
+# @TODO: this is failing sometimes because orders aren't processed or something but it're returning a 204 or 400 a lot of times
 @orders.route("/trailing", methods=["POST"])
 def trailing():
     """
@@ -93,10 +94,14 @@ def trailing():
     """
     if g.data.get("sp") is True:
         try:
+            qty_available = position.qty_available(g.data, api)
+
+            opps_side = position.opps(g.data)
+
             trailing_stop_data = TrailingStopOrderRequest(
                 symbol=g.data.get("ticker"),
-                qty=g.data.get("qty"),
-                side=position.opps(g.data),
+                qty=qty_available,
+                side=opps_side,
                 time_in_force="gtc",
                 after_hours=g.data.get("after_hours"),
                 trail_percent=g.data.get("trail_percent"),
@@ -201,7 +206,6 @@ def preprocess():
     if sec.validate_signature(g.data) != True:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
-    # Check if we have a position and an account
     g.data["pos"] = position.get(g.data, api)
     g.data["acc"] = account.get(g.data, api)
 
@@ -210,16 +214,16 @@ def preprocess():
     g.data["interval"] = g.data.get("interval", "nointerval")
     g.data["notional"] = g.data.get("notional", calc.notional(api))
     g.data["order_id"] = order.gen_id(g.data, 10)
-    g.data["profit"] = g.data.get("profit", calc.profit(api, g.data))
+    g.data["profit"] = g.data.get("profit", calc.profit(g.data, api))
     g.data["qty"] = g.data.get("qty", calc.qty(api))
     g.data["side"] = g.data.get("side", calc.side(api))
 
     # @TODO: update this to calc
-    g.data["sp"] = g.data.get("sp", position.sp(api, g.data))
+    g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
 
     g.data["trail_percent"] = g.data.get("trail_percent", 0.1)
     g.data["trailing"] = g.data.get("trailing", calc.trailing(api))
-    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(api, g.data))
+    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(g.data, api))
 
     app.logger.debug("Data: %s", g.data)
 

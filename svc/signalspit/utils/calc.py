@@ -11,7 +11,11 @@ def profit(api, pos):
 
 
 def qty(api):
-    # Get the account value i.e.
+    """
+    Calculate the quantity of shares to buy based on the risk value and the share price
+    """
+    # Get the available account value i.e. and divide by the risk value
+
     # Take share price divided by risk to get a share quantity
     return 10
 

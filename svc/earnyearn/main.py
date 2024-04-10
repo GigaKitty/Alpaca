@@ -36,7 +36,6 @@ async def start_scheduler():
         "cron",
         day_of_week="mon-fri",
         timezone="America/New_York",
-        hour="8-19",
         minute="*/1",
     )
     scheduler.start()
@@ -56,11 +55,13 @@ def send_order(action, symbol):
     # Sending a POST request with JSON data
     response = requests.post(hook_url, json=data)
 
-    # Checking the response
     if response.status_code == 200:
-        print("Pass", response.json())
+        try:
+            print("Pass", response.json())
+        except requests.exceptions.JSONDecodeError:
+            print("Response is not in JSON format.", response)
     else:
-        print("Fail", response.json())
+        print(f"HTTP Error encountered: {response.status_code}")
 
 
 async def fetch_earnings_calendar():
@@ -96,7 +97,7 @@ async def fetch_earnings_calendar():
     await socket(subs)
 
 
-async def process_bar_data(data):
+async def process_bar_data(data, strat):
     global dataframes
     data = json.loads(data)
     # Initialize a DataFrame to store parsed data
@@ -147,14 +148,17 @@ async def process_bar_data(data):
 
         # Optionally, limit the size of the DataFrame to keep only recent data
         dataframes[symbol] = dataframes[symbol].tail(3600)
-        # Check for MACD crossover
         # Apply MACD with default parameters (fast=12, slow=26, signal=9)
         # Check if we have enough data to calculate MACD
         if len(dataframes[symbol]) < 35:
-            print(f"Not enough data to calculate MACD on {symbol}")
-            # print(dataframes[symbol])
+            print(f"Not enough data to calculate {strat} on {symbol}")
             continue
 
+        await calc_strat(strat, symbol)
+
+
+async def calc_strat(strat, symbol):
+    if strat == "macd":
         macd = dataframes[symbol].ta.macd(close="close", fast=12, slow=26, signal=9)
 
         if (
@@ -169,6 +173,7 @@ async def process_bar_data(data):
         ):
             print(f"MACD bearish crossover for {symbol}")
             send_order("sell", symbol)
+    # @TODO: add more strategies here
 
 
 # Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}
@@ -217,7 +222,7 @@ async def socket(subs):
             while True:
                 try:
                     data = await websocket.recv()
-                    await process_bar_data(data)
+                    await process_bar_data(data, "macd")
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
                     websocket_connected = False
