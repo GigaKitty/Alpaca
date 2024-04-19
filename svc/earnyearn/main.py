@@ -29,7 +29,6 @@ dataframes = {}
 
 async def start_scheduler():
     scheduler = AsyncIOScheduler()
-    # scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
     # Check every hour for earnings data from 09:30EST (14:30UTC) to 16:00EST (21:00UTC) on weekdays (Mon-Fri)
     scheduler.add_job(
         fetch_earnings_calendar,
@@ -155,6 +154,7 @@ async def process_bar_data(data, strat):
             continue
 
         await calc_strat(strat, symbol)
+        # await calc_strat(strat, symbol)
 
 
 async def calc_strat(strat, symbol):

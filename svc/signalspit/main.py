@@ -12,6 +12,8 @@ from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 from utils import position, sec, order, account, calc
 import json
 import os
+import threading
+import asyncio
 import random
 import random
 import requests
@@ -94,14 +96,10 @@ def trailing():
     """
     if g.data.get("sp") is True:
         try:
-            qty_available = position.qty_available(g.data, api)
-
-            opps_side = position.opps(g.data)
-
             trailing_stop_data = TrailingStopOrderRequest(
                 symbol=g.data.get("ticker"),
-                qty=qty_available,
-                side=opps_side,
+                qty=g.data.get("qty_available"),
+                side=g.data.get("opps"),
                 time_in_force="gtc",
                 after_hours=g.data.get("after_hours"),
                 trail_percent=g.data.get("trail_percent"),
@@ -114,7 +112,6 @@ def trailing():
 
             response_data = {"message": "Webhook received and processed successfully"}
             return jsonify(response_data), 200
-
         except Exception as e:
             app.logger.error("Error processing request: %s", str(e))
             error_message = {"error": "Failed to process webhook request"}
@@ -195,6 +192,7 @@ def preprocess():
     This is to ensure consistency and to avoid losses.
     This is not intended to replace other order types like limit, stop, etc.
     Essentailly, it's to preprocess the Data object and set defaults before it's sent to the order endpoints.
+    Keep it fast and simple......
     """
     # Hack Time
     api.get_clock()
@@ -206,24 +204,35 @@ def preprocess():
     if sec.validate_signature(g.data) != True:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
-    g.data["pos"] = position.get(g.data, api)
-    g.data["acc"] = account.get(g.data, api)
+    # Account
+    g.data["acc"] = account.get_account(g.data, api)
 
+    # Position
+    g.data["pos"] = position.get_position(g.data, api)
+
+    # Calc
+    # @NOTE: qty depends on risk so we calculate risk first
+    g.data["risk"] = g.data.get("risk", calc.risk(g.data, api))
+    g.data["notional"] = g.data.get("notional", calc.notional(g.data, api))
+    g.data["profit"] = g.data.get("profit", calc.profit(g.data, api))
+    g.data["qty"] = g.data.get("qty", calc.qty(g.data, api))
+    g.data["side"] = g.data.get("side", calc.side(g.data, api))
+    g.data["trail_percent"] = g.data.get(
+        "trail_percent", calc.trail_percent(g.data, api)
+    )
+    g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data, api))
+    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(g.data, api))
+
+    # Order
+    g.data["order_id"] = order.gen_id(g.data, 10)
+
+    # Other
     g.data["after_hours"] = g.data.get("after_hours", False)
     g.data["comment"] = g.data.get("comment", "nocomment")
     g.data["interval"] = g.data.get("interval", "nointerval")
-    g.data["notional"] = g.data.get("notional", calc.notional(api))
-    g.data["order_id"] = order.gen_id(g.data, 10)
-    g.data["profit"] = g.data.get("profit", calc.profit(g.data, api))
-    g.data["qty"] = g.data.get("qty", calc.qty(api))
-    g.data["side"] = g.data.get("side", calc.side(api))
 
-    # @TODO: update this to calc
+    # Analyze the position last after all other calculations
     g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
-
-    g.data["trail_percent"] = g.data.get("trail_percent", 0.1)
-    g.data["trailing"] = g.data.get("trailing", calc.trailing(api))
-    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(g.data, api))
 
     app.logger.debug("Data: %s", g.data)
 
@@ -231,16 +240,23 @@ def preprocess():
 # Add an orders after_request to handle postprocessing
 @orders.after_request
 def postprocess(response):
-    # If trailing is active and we have a position then we place a traillng order for the current position size
+    # @TODO: this needs to spawn async trailing orders after each market order has been filled
     if (
-        response.status_code == 200
+        hasattr(g, "data")
+        and response.status_code == 200
         and g.data.get("trailing") is True
-        and position.get(g.data, api) is not False
     ):
-        # Gets the updated position again after new order is placed
-        g.data["pos"] = position.get(g.data, api)
-        # Trigger trailing stop order
-        trailing()
+        pos = position.get_position(g.data, api)
+
+        # @TODO: Need to check status for qty_available
+        # order_status = order.check_order_status(g.data["order_id"], api)
+
+        if pos is not False:
+            g.data["opps"] = position.opps(g.data, api)
+            g.data["qty_available"] = position.qty_available(g.data, api)
+            threading.Thread(target=handle_trailing_stop, args=(g.data, api)).start()
+
+            trailing()
 
     return response
 

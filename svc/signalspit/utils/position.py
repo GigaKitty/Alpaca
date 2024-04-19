@@ -4,7 +4,7 @@ import string
 
 ############################################################
 # Gets currently open position for ticker
-def get(data, api):
+def get_position(data, api):
     """
     Checks the position of the current ticker
     """
@@ -18,53 +18,72 @@ def get(data, api):
         return False
 
 
+def get_current_price(data, api):
+    pos = get_position(data, api)
+    if pos is not False:
+        return float(pos.current_price)
+
+
 def qty_available(data, api):
+    """
+    Check the available quantity of shares to place a trailling order on
+    """
 
     qty_available = data.get("qty")
 
     try:
-        position = get(data, api)
-        qty_available = float(position.qty_available)
-        print("======================================================")
-        print(position, qty_available)
-        print("======================================================")
+        pos = get_position(data, api)
+        print(pos.qty_available)
+
+        qty_available = pos.qty_available
     except ValueError:
         # Handle the case where the string does not represent a number
         print(f"Error: is not a valid number.")
         return None
 
-    return abs(qty_available)
+    return qty_available
 
 
-def opps(data):
+def opps(data, api):
     """
     Trailing orders and other types need to take an opposite side to fill the order.
     Check the current position side and take the opposite side.
     """
     action = data.get("action")
-    pos = data.get("pos")
-    side = (
-        pos.side.lower()
-    )  # make position.side lowercase for comparison with action returns long or short
+    pos = get_position(data, api)
 
-    if side == "long":
-        action = "sell"
-    elif side == "short":
-        action = "buy"
+    if data.get("pos") is not False:
+        side = (
+            pos.side.lower()
+        )  # make position.side lowercase for comparison with action returns long or short
+
+        if side == "long":
+            action = "sell"
+        elif side == "short":
+            action = "buy"
 
     return action
 
 
 def sp(data, api):
+    side = data.get("side")
+    action = data.get("action")
+
     if data.get("pos") is not False:
         # If position need to analyze it and make sure it's on the same side
+        print(f"SMASH OR PASS POS is NOT false let's do analyze")
         return anal(data, api)
-    elif data.get("pos") is False and data.get("side") == data.get("action"):
+    elif data.get("pos") is False and side == action:
         # No position side == action which means same intention from signal to strategy
+        print(f"SMASH OR PASS POS IS false and my {side} == {action}")
+        return True
+    elif side == action:
+        # No position and there's no side then set the g.data["sp"] to True to trade all the things
+        print(f"SMASH OR PASS {side} {action} ")
         return True
     else:
-        # No position and there's no side then set the g.data["sp"] to True to trade all the things
-        return True
+        print(f"SMASH OR PASS ALL HAS FAILED {side} {action}")
+        return False
 
 
 def anal(data, api):
@@ -91,21 +110,26 @@ def anal(data, api):
 
     if profit <= 0 and side == action:
         # if no profit and side is action which matches strategy then need to trade more
-        print(f"Buy {pos.symbol} @ {side} side P/L {pos.unrealized_pl}")
+        print(
+            f"Buy {pos.symbol} with action {action} in favor or same side {side} P/L {profit}"
+        )
         return True
     elif profit <= 0 and side != action:
         # if no profit and the action is not the same to side then skip
         print(
-            f"Skip {pos.symbol} @ {side} for same side trades P/L {pos.unrealized_pl}"
+            f"Skipping {pos.symbol} with action {action} in favor or same side {side} P/L {profit}"
         )
         return False
     elif profit >= data.get("profit") and side != action:
         # if position and there's profit and the action is not the same to side then close and continue
+        print(
+            f"Closing position {pos.symbol} with action {action} on {side} side P/L {profit}"
+        )
         print(f"Closing position {pos.symbol}")
         api.close_position(pos.symbol)
-        print(f"Closed position {pos.symbol}")
+        print(f"Closed all position(s) for {pos.symbol}")
         return True
-    # all else return true
     else:
-        print("Continue")
+        # all else return true
+        print(f"There is no position and no profit and side does not equal action")
         return True

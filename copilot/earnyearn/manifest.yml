@@ -1,11 +1,6 @@
 name: earnyearn
 type: Backend Service
 
-http:
-  path: "/"
-  healthcheck: "/health"
-  interval: 1h
-
 image:
   build: ./svc/earnyearn/Dockerfile
   port: 5000
@@ -18,7 +13,8 @@ network:
   connect: false
 
 storage:
-  readonly_fs: true
+  # @TODO: verify that this needs to be able to write to FS to deploy
+  readonly_fs: false
 
 secrets:
   APCA_API_KEY_ID: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_KEY_ID

@@ -1,4 +1,4 @@
-def profit(api, pos):
+def profit(data, api):
     return 1
     # take the current market value of position
     # if that is more than 1% profit then return that price/number
@@ -10,40 +10,57 @@ def profit(api, pos):
     # return value
 
 
-def qty(api):
+def qty(data, api):
     """
     Calculate the quantity of shares to buy based on the risk value and the share price
     """
-    # Get the available account value i.e. and divide by the risk value
+    cash = float(data["acc"].cash)
+    pos = data["pos"]
 
-    # Take share price divided by risk to get a share quantity
-    return 10
+    if cash > 0 and pos is not False:
+        cash = round(cash * data["risk"])
+        current_price = float(data["pos"].current_price)
+        qty = round(cash / current_price)
+    else:
+        qty = 10
+
+    return qty
 
 
-def notional(api):
+def notional(data, api):
     # use the risk value
     return 10
 
 
-def trailing(api):
-    # 0.1 is the lowest it will accept
+def trailing(data, api):
     return True
 
 
-def side(api):
+def trail_percent(data, api):
+    # 0.1 is the lowest it will accept
+    # get current position in $ value and return 1% of that
+    # @EXAMPLE: %1 of $100 is $1
+    return 0.1
+
+
+def side(data, api):
     # change to long short later
     return "buy"
 
 
-def limit_price():
+def limit_price(data, api):
     # limit price is price * 0.98 or similar
     return 0.98
 
 
-def stop_price():
+def stop_price(data, api):
     # stop price is price * 0.98 or similar
     return 0.99
 
 
-def wiggle(api, data):
+def wiggle(data, api):
     return False
+
+
+def risk(data, api):
+    return 0.01
