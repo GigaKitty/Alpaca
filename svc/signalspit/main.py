@@ -19,6 +19,7 @@ import random
 import requests
 import string
 import string
+import time
 
 #######################################################
 #### ENVIRONMENT SETUP ################################
@@ -54,6 +55,10 @@ def bracket():
             # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
             price = round(float(g.data.get("price")), 2)
 
+            calc_limit_price = round(calc.limit_price(), 2)
+            calc_profit_limit_price = round(price * calc.profit_limit_price(), 2)
+            calc_stop_price = round(calc.stop_price, 2)
+
             bracket_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=g.data.get("qty"),
@@ -61,14 +66,12 @@ def bracket():
                 time_in_force="gtc",
                 order_class=OrderClass.BRACKET,
                 after_hours=g.data.get("after_hours"),
-                take_profit=TakeProfitRequest(
-                    limit_price=round(price * calc.limit_price(), 2)
-                ),
+                take_profit=TakeProfitRequest(limit_price=calc_profit_limit_price),
                 stop_loss=StopLossRequest(
-                    stop_price=round(calc.stop_price, 2),
-                    limit_price=round(calc.limit_price, 2),
+                    stop_price=calc_stop_price,
+                    limit_price=calc_limit_price,
                 ),
-                client_order_id=g.data.get("order_id") + "_" + "bracket",
+                client_order_id=g.data.get("order_id"),
             )
             app.logger.debug("Bracket Order Data: %s", bracket_order_data)
             bracket_order = api.submit_order(order_data=bracket_order_data)
@@ -84,9 +87,7 @@ def bracket():
         return jsonify(skip_message), 204
 
 
-# Trailing Percent Stop Order Type
-# @TODO: this is failing sometimes because orders aren't processed or something but it're returning a 204 or 400 a lot of times
-@orders.route("/trailing", methods=["POST"])
+# @orders.route("/trailing", methods=["POST"])
 def trailing():
     """
     Places a trailing stop order based on TradingView WebHook
@@ -94,31 +95,62 @@ def trailing():
     that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
-    if g.data.get("sp") is True:
-        try:
-            trailing_stop_data = TrailingStopOrderRequest(
-                symbol=g.data.get("ticker"),
-                qty=g.data.get("qty_available"),
-                side=g.data.get("opps"),
-                time_in_force="gtc",
-                after_hours=g.data.get("after_hours"),
-                trail_percent=g.data.get("trail_percent"),
-                client_order_id=g.data.get("order_id") + "_" + "trailing",
-            )
-            app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
+    max_attempts = 10
+    for attempt in range(max_attempts):
+        if attempt > max_attempts:
+            print("were maxed out")
+            return False
+        else:
+            print("were threading")
+            break
+        ord = api.get_order_by_client_id(g.data.get("order_id"))
+        pos = position.get_position(g.data, api)
+        print("===============================")
+        print(ord)
+        print("===============================")
 
-            trailing_stop_order = api.submit_order(order_data=trailing_stop_data)
-            app.logger.debug("Trailing Stop Order: %s", trailing_stop_order)
+        # Define the possible values for ord.status
+        invalid = {"canceled", "expired", "replaced", "pending_cancel"}
+        valid = {"filled", "partially_filled"}
 
-            response_data = {"message": "Webhook received and processed successfully"}
-            return jsonify(response_data), 200
-        except Exception as e:
-            app.logger.error("Error processing request: %s", str(e))
-            error_message = {"error": "Failed to process webhook request"}
-            return jsonify(error_message), 400
-    else:
-        skip_message = {"Skip": "Skip webhook"}
-        return jsonify(skip_message), 204
+        if pos is not False and ord.status in invalid:
+            break
+
+        elif pos is not False and ord.status in valid:
+            g.data["opps"] = position.opps(g.data, api)
+            g.data["qty_available"] = position.qty_available(g.data, api)
+
+            if g.data.get("sp") is True:
+                try:
+                    trailing_stop_data = TrailingStopOrderRequest(
+                        symbol=g.data.get("ticker"),
+                        qty=g.data.get("qty_available"),
+                        side=g.data.get("opps"),
+                        time_in_force="gtc",
+                        after_hours=g.data.get("after_hours"),
+                        trail_percent=g.data.get("trail_percent"),
+                        client_order_id=g.data.get("order_id"),
+                    )
+                    app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
+
+                    trailing_stop_order = api.submit_order(
+                        order_data=trailing_stop_data
+                    )
+                    app.logger.debug("Trailing Stop Order: %s", trailing_stop_order)
+
+                    response_data = {
+                        "message": "Webhook received and processed successfully"
+                    }
+                    return jsonify(response_data), 200
+                except Exception as e:
+                    app.logger.error("Error processing request: %s", str(e))
+                    error_message = {"error": "Failed to process webhook request"}
+                    return jsonify(error_message), 400
+            else:
+                skip_message = {"Skip": "Skip webhook"}
+                return jsonify(skip_message), 204
+
+        time.sleep(5)
 
 
 # Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
@@ -138,7 +170,7 @@ def notional():
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
                 after_hours=g.data.get("after_hours"),
-                client_order_id=g.data.get("order_id") + "_" + "notional",
+                client_order_id=g.data.get("order_id"),
             )
             app.logger.debug("Market Data: %s", market_order_data)
             market_order = api.submit_order(order_data=market_order_data)
@@ -168,7 +200,7 @@ def market():
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.IOC,
                 after_hours=g.data.get("after_hours"),
-                client_order_id=g.data.get("order_id") + "_" + "market",
+                client_order_id=g.data.get("order_id"),
             )
             app.logger.debug("Market Data: %s", market_order_data)
             market_order = api.submit_order(order_data=market_order_data)
@@ -212,16 +244,14 @@ def preprocess():
 
     # Calc
     # @NOTE: qty depends on risk so we calculate risk first
-    g.data["risk"] = g.data.get("risk", calc.risk(g.data, api))
-    g.data["notional"] = g.data.get("notional", calc.notional(g.data, api))
-    g.data["profit"] = g.data.get("profit", calc.profit(g.data, api))
-    g.data["qty"] = g.data.get("qty", calc.qty(g.data, api))
-    g.data["side"] = g.data.get("side", calc.side(g.data, api))
-    g.data["trail_percent"] = g.data.get(
-        "trail_percent", calc.trail_percent(g.data, api)
-    )
-    g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data, api))
-    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(g.data, api))
+    g.data["risk"] = g.data.get("risk", calc.risk())
+    g.data["notional"] = g.data.get("notional", calc.notional())
+    g.data["profit"] = g.data.get("profit", calc.profit())
+    g.data["qty"] = g.data.get("qty", calc.qty(g.data))
+    g.data["side"] = g.data.get("side", calc.side())
+    g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent())
+    g.data["trailing"] = g.data.get("trailing", calc.trailing())
+    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle())
 
     # Order
     g.data["order_id"] = order.gen_id(g.data, 10)
@@ -246,17 +276,8 @@ def postprocess(response):
         and response.status_code == 200
         and g.data.get("trailing") is True
     ):
-        pos = position.get_position(g.data, api)
-
-        # @TODO: Need to check status for qty_available
-        # order_status = order.check_order_status(g.data["order_id"], api)
-
-        if pos is not False:
-            g.data["opps"] = position.opps(g.data, api)
-            g.data["qty_available"] = position.qty_available(g.data, api)
-            threading.Thread(target=handle_trailing_stop, args=(g.data, api)).start()
-
-            trailing()
+        print("threading")
+        threading.Thread(target=trailing, args=()).start()
 
     return response
 

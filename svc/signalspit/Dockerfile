@@ -13,6 +13,8 @@ WORKDIR /app
 
 COPY ./ /app/
 
+RUN pip install --upgrade pip
+
 RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
 
 CMD ["python", "main.py"]
