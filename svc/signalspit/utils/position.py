@@ -55,11 +55,14 @@ def opps(data, api):
     if data.get("pos") is not False:
         side = (
             pos.side.lower()
+            # @TODO: errors out with no side....
         )  # make position.side lowercase for comparison with action returns long or short
 
         if side == "long":
             action = "sell"
         elif side == "short":
+            action = "buy"
+        else:
             action = "buy"
 
     return action

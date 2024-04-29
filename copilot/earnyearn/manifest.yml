@@ -13,7 +13,7 @@ network:
   connect: false
 
 storage:
-  # @TODO: verify that this needs to be able to write to FS to deploy
+  # Read to fs because we're storing dataframes data in the container
   readonly_fs: false
 
 secrets:

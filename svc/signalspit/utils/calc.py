@@ -10,18 +10,30 @@ def profit():
     # return value
 
 
+# Function to get the current price of a ticker
+def get_current_price(data, api):
+    # Get the current bar data for the ticker
+    barset = api.get_barset(data.get("symbol"), "minute", limit=1)
+    bar = barset[ticker][0]
+    print(
+        f"Time: {bar.t}, Open: {bar.o}, High: {bar.h}, Low: {bar.l}, Close: {bar.c}, Volume: {bar.v}"
+    )
+    return bar.c
+
+
 def qty(data):
     """
     Calculate the quantity of shares to buy based on the risk value and the share price
     """
     cash = float(data["acc"].cash)
-    pos = data["pos"]
 
-    # @TODO: we don't need position we need the current price
-    if cash > 0 and pos is not False:
+    print(cash)
+    if cash > 0:
         cash = round(cash * data["risk"])
-        current_price = float(data["pos"].current_price)
-        qty = round(cash / current_price)
+        # @TODO: change to high low close dynamic based on side.
+        price = round(float(data.get("low")), 2)
+
+        qty = round(cash / price)
     else:
         qty = 1
 
@@ -49,20 +61,23 @@ def side():
     return "buy"
 
 
-def profit_limit_price():
+def profit_limit_price(data):
     # limit price is price * 0.98 or similar
-    # @TODO: this could be more intelligent to where it's
-    return 0.98
+    # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
+    price = round(float(data.get("low")), 2)
+    return price * 1.01
 
 
-def stop_price():
+def stop_price(data):
     # stop price is price * 0.98 or similar
-    return 0.99
+    price = round(float(data.get("low")), 2)
+    return round(float(price * 0.99))
 
 
-def limit_price():
+def limit_price(data):
     # limit price is price * 0.98 or similar
-    return 0.98
+    price = round(float(data.get("low")), 2)
+    return round(float(price * 0.98))
 
 
 def wiggle():

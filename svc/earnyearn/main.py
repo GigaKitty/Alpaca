@@ -6,11 +6,18 @@ import time
 import requests
 import websockets
 import asyncio
+import sys
 import pandas as pd
 import pandas_ta as ta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 
+########################################
+### SETUP ENV
+########################################
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
 env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
@@ -21,10 +28,28 @@ stream = "wss://stream.data.alpaca.markets/v2/sip"
 
 # @TODO: Make this URL dynamic but how based on other services?
 hook_url = "https://signalspit.dev.alpaca.gigakitty.com/market"
-
+# Set the display options
+pd.set_option("display.max_columns", None)
+pd.set_option("display.expand_frame_repr", False)
+pd.set_option("max_colwidth", None)
+pd.set_option("display.max_rows", None)
+bar_number = 42
 subs = []
 websocket_connected = False
 dataframes = {}
+client = StockHistoricalDataClient(api_key=api_key, secret_key=api_sec)
+
+
+########################################
+########################################
+
+
+async def get_bars(symbol):
+
+    # Convert to dataframe
+    bars.df
+    return bars.df
+    ###########
 
 
 async def start_scheduler():
@@ -40,11 +65,15 @@ async def start_scheduler():
     scheduler.start()
 
 
-def send_order(action, symbol):
-
+def send_order(action, symbol, data):
+    print(data)
     data = {
         "action": action,
         "comment": "macd-earnyearn",
+        "low": data[symbol]["low"].iloc[-1],
+        "high": data[symbol]["high"].iloc[-1],
+        "close": data[symbol]["close"].iloc[-1],
+        "volume": data[symbol]["volume"].iloc[-1],
         "interval": "1m",
         "signature": tv_sig,
         "ticker": symbol,
@@ -87,7 +116,6 @@ async def fetch_earnings_calendar():
     # Check if there are earnings in the fetched data
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
-            # print(earning["symbol"])
             subs.append(earning["symbol"])
 
     else:
@@ -98,11 +126,15 @@ async def fetch_earnings_calendar():
 
 async def process_bar_data(data, strat):
     global dataframes
+
     data = json.loads(data)
-    # Initialize a DataFrame to store parsed data
     df = pd.DataFrame(data)
 
     if "S" not in df.columns:
+        return
+
+    if df.isnull().values.any():
+        print("DataFrame contains NaN values.")
         return
 
     #  Ensure the 'o', 'h', 'l', 'c', and 'v' columns are numeric
@@ -124,14 +156,6 @@ async def process_bar_data(data, strat):
         }
     )
 
-    # Remove open, high, low, volume from dataframe this may or may not save us some memory
-    # df = df.drop(columns=["open", "high", "low", "volume", "n", "vw"])
-
-    # if any value is NaN, skip the DataFrame
-    if df.isnull().values.any():
-        print("DataFrame contains NaN values.")
-        return
-
     for symbol, group in df.groupby("symbol"):
         group = group.set_index(
             "timestamp"
@@ -144,36 +168,45 @@ async def process_bar_data(data, strat):
         else:
             # Create a new DataFrame for this symbol
             dataframes[symbol] = group
+            #####
+            # request_params = StockBarsRequest(
+            #    symbol_or_symbols=symbol, timeframe=TimeFrame.Minute, limit=bar_number
+            # )
+            # print(f"fetching bar data for {symbol} to build dataframe")
+            # bars = client.get_stock_bars(request_params)
+            # dataframes[symbol] = pd.concat([bars.df, group])
+            print(f"New dataframe group {symbol}")
 
-        # Optionally, limit the size of the DataFrame to keep only recent data
-        dataframes[symbol] = dataframes[symbol].tail(3600)
-        # Apply MACD with default parameters (fast=12, slow=26, signal=9)
-        # Check if we have enough data to calculate MACD
-        if len(dataframes[symbol]) < 35:
+        dataframes[symbol] = dataframes[symbol].tail(
+            3600
+        )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
+        if (
+            len(dataframes[symbol]) < 35
+        ):  # Check if we have enough data to calculate MACD
             print(f"Not enough data to calculate {strat} on {symbol}")
             continue
 
         await calc_strat(strat, symbol)
-        # await calc_strat(strat, symbol)
 
 
 async def calc_strat(strat, symbol):
+    print(f"Calculating {strat} for {symbol}")
+    print(dataframes[symbol])
     if strat == "macd":
         macd = dataframes[symbol].ta.macd(close="close", fast=12, slow=26, signal=9)
-
         if (
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD bullish crossover for {symbol}")
-            send_order("buy", symbol)
+            send_order("buy", symbol, dataframes[symbol])
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD bearish crossover for {symbol}")
-            send_order("sell", symbol)
-    # @TODO: add more strategies here
+            send_order("sell", symbol, dataframes[symbol])
+    # @TODO: Add more strategies here
 
 
 # Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}
@@ -224,9 +257,8 @@ async def socket(subs):
                     data = await websocket.recv()
                     await process_bar_data(data, "macd")
                 except websockets.ConnectionClosed:
-                    print("WebSocket connection closed")
+                    print(f"WebSocket connection closed we retrying...")
                     websocket_connected = False
-                    break
         else:
             print("Authentication failed.")
             websocket_connected = False
@@ -234,9 +266,8 @@ async def socket(subs):
 
 async def main():
     await fetch_earnings_calendar()
-    # await socket(subs)
     while True:
-        await asyncio.sleep(1)  # Sleep for 1 seconds
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":

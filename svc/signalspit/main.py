@@ -18,7 +18,6 @@ import random
 import random
 import requests
 import string
-import string
 import time
 
 #######################################################
@@ -50,14 +49,10 @@ orders = Blueprint("orders", __name__)
 @orders.route("/bracket", methods=["POST"])
 def bracket():
     if g.data.get("sp") is True:
-
         try:
-            # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
-            price = round(float(g.data.get("price")), 2)
-
-            calc_limit_price = round(calc.limit_price(), 2)
-            calc_profit_limit_price = round(price * calc.profit_limit_price(), 2)
-            calc_stop_price = round(calc.stop_price, 2)
+            calc_limit_price = round(calc.limit_price(g.data), 2)
+            calc_profit_limit_price = round(calc.profit_limit_price(g.data), 2)
+            calc_stop_price = round(calc.stop_price(g.data), 2)
 
             bracket_order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
@@ -100,23 +95,17 @@ def trailing():
         if attempt > max_attempts:
             print("were maxed out")
             return False
-        else:
-            print("were threading")
-            break
+
         ord = api.get_order_by_client_id(g.data.get("order_id"))
-        pos = position.get_position(g.data, api)
-        print("===============================")
-        print(ord)
-        print("===============================")
 
         # Define the possible values for ord.status
         invalid = {"canceled", "expired", "replaced", "pending_cancel"}
         valid = {"filled", "partially_filled"}
 
-        if pos is not False and ord.status in invalid:
+        print(locals())
+        if ord.status in invalid:
             break
-
-        elif pos is not False and ord.status in valid:
+        elif ord.status in valid:
             g.data["opps"] = position.opps(g.data, api)
             g.data["qty_available"] = position.qty_available(g.data, api)
 
@@ -129,7 +118,7 @@ def trailing():
                         time_in_force="gtc",
                         after_hours=g.data.get("after_hours"),
                         trail_percent=g.data.get("trail_percent"),
-                        client_order_id=g.data.get("order_id"),
+                        client_order_id=g.data.get("order_id") + "trailing",
                     )
                     app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
 
@@ -276,8 +265,7 @@ def postprocess(response):
         and response.status_code == 200
         and g.data.get("trailing") is True
     ):
-        print("threading")
-        threading.Thread(target=trailing, args=()).start()
+        trailing()
 
     return response
 
