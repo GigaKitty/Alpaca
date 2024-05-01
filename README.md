@@ -1,83 +1,100 @@
 # Alpaca
-## WIP in development!!
-Alpaca integrations for various tools. 
 
-Includes: 
-- Webhooks for TradingView alerts to execute orders on Alpaca. 
-    - Webhooks can operate with multiple strategies to execute and manage orders
-- Background functions to execute orders in realtime.
+Portable collection of microservices for Alpaca trading that deploy to AWS ECS using Copilot. Services are split into different tools and strategies for trading. Some services talk to other services, while others are standalone. The project currently uses copilot to deploy microservices so they are easy to manage and scale.
 
-### @USE:
+## @purpose
+To create microservices that can used off the shelf with minimal effort that can be deployed via docker anywhere with minimal setup.
 
-Export AWS credentials & docker-compose up
-```bash
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
+## Contributing 
+You can easily contribute or request your own bots to this project or other projects on GigaKitty for other trading platforms by creating a new service. There is a step-by-step guide in the example service or you can contact us for more info just open an issue to open a comms link.
 
-docker compose up
+## Application
+The project consists of a single application "Alpaca" that make up the project.
+
+## Services
+AWS copilot services are broken down into microservice architecture having each it's own responsibility. The services are as follows:
+
+### svc Requirements
+- Must be instantly deployable and usable
+    - local using `docker-compose.yml`
+    - GitHub codespaces
+    - AWS copilot (ECS)
+- Must run without intervention from trader
+- Must have clear documentation or at least clean code to understand implementation
+
+🟣 Idea
+🟡 WIP
+🟢 Production
+
+### 🟣 beancleaner
+A cleanup service that will periodically clean up trades based on a pre-determined price and time criteria.
+For instance:
+- Every Friday at 13:00EST close all trades profitable over a dollar 
+- Every Weekday at 13:00EST close all trades losing between $0-$5
+
+### 🟢 earnyearn
+Automatic earnings report bot that consumes realtime bar data on earnings tickers upcoming or passed to process algos on. When an algo triggers it sends an order request to a webhook bot.
+
+### 🟣 havocharvester
+Bot which monitors news and sentiment which is negative or specifically related to havoc, natural disaster, catastrophe, weather, war etc. It then makes a prediction based on this data and it's volume to buy or sell relatable assets.
+
+### 🟣 pacapredictor
+A service that uses a machine learning model to predict the price of a stock. The model is trained on historical data and uses a LSTM neural network to make predictions. The service is used to predict the price of a stock at a given time and is used to make trading decisions.
+
+### 🟣 queuecria 
+A service that listens to a queue and executes worker tasks. It is used to execute tasks that are triggered by a schedule or by a queue. It's used for common tasks like cron jobs or background tasks and is used as a worker service to execute tasks. Centralized queueing service to assist in processing large amounts of requests in an asynchronous fashion.
+
+### 🟣 redditspreadit
+Specifically browses reddit for sentiment analysis. Scans reddit and performs a simple sentiment scoring to buy/sell assets.
+
+### 🟣 scalapaca
+Service that produces HFTesque scalp trades.
+
+### 🟡 sentimentsheperd
+
+Uses chatgpt to analyze sentiment of news articles and social media posts. These are fed via websockets to deliver realtime data for the bot to score and ultimately make trading decisions based on the feeds coming in.
+
+### 🟢 signalspit
+
+TradingView webhook processing service. This service listens for webhooks from TradingView and executes orders based on the payload. Different strategies and order types can be used to execute orders on different endpoints.
+
+## Deploying
+
+### Prerequisites
+
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
+- [AWS Copilot](https://aws.github.io/copilot-cli/docs/getting-started/install/)
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Python 3.8](https://www.python.org/downloads/)
+- [Pipenv](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
+
+### TradingView WebHook Alerts
+
+These are the alerts that are configured in TradingView to send webhooks to the API. The alerts are configured to send a POST request to the API with the following JSON payload.
+
+```{
+    "action": "{{strategy.order.action}}",
+    "alert_message": "{{strategy.order.alert_message}}",
+    "close": "{{close}}",
+    "comment": "{{strategy.order.comment}}",
+    "contracts": "{{strategy.order.contracts}}",
+    "exchange": "{{exchange}}",
+    "high": "{{high}}",
+    "id": "{{strategy.order.id}}",
+    "interval": "{{interval}}",
+    "low": "{{low}}",
+    "open": "{{open}}",
+    "position_size": "{{strategy.position_size}}",
+    "prev_market_position": "{{strategy.prev_market_position}}",
+    "prev_market_position_size": "{{strategy.prev_market_position_size}}",
+    "price": "{{strategy.order.price}}",
+    "ticker": "{{ticker}}",
+    "time": "{{time}}",
+    "signature": "REPLACE_ME"
+}
 ```
-python -m pip install awscli
 
-curl -Lo copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux && chmod +x copilot && sudo mv copilot /usr/local/bin/copilot && copilot --help
-The error message indicates that you're trying to assume a role from the root account. AWS does not allow root accounts to assume IAM roles. You should create an IAM user, grant that user the necessary permissions, and then use that user's credentials to assume the role.
+the `signature` field is a HMAC signature of the payload using the secret key. The secret key is stored in AWS Secrets Manager and is used to verify the payload is coming from TradingView.
 
-Here's how you can create a new IAM user and grant it permissions to assume the role:
-
-    Create a new IAM user:
-
-    Create an access key for the new user:
-
-This command returns an Access Key ID and Secret Access Key. Make sure to save these values as you'll need them to configure your AWS CLI.
-
-    Grant the user permissions to assume the role. First, create a policy that allows the user to assume the role. Save the following policy in a file named assume-role-policy.json:
-
-Replace 123456789012 with your AWS account ID.
-
-    Create the policy in IAM:
-
-This command returns a policy ARN.
-
-    Attach the policy to the user:
-
-Replace 123456789012 with your AWS account ID.
-
-Now, you can configure yo
-aws iam create-role --role-name CopilotProvisioningRole --assume-role-policy-document file://trust-policy.json
-
-aws iam attach-role-policy --role-name CopilotProvisioningRole --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
-Yes, you can schedule an AWS Copilot service to only run during weekdays using Amazon CloudWatch Events (also known as Amazon EventBridge). You can create a cron schedule expression to specify the weekdays.
-
-Here's a step-by-step guide:
-
-    First, deploy your service using AWS Copilot. This will create an ECS service under the hood.
-
-    Create a CloudWatch Event rule that starts your service at the beginning of the workday. The following AWS CLI command creates a rule that triggers every weekday at 8 AM:
-
-    Add your ECS service as a target to the rule. The following command starts the my-service service in the my-app application and my-env environment:
-
-Replace arn:aws:ecs:us-west-2:123456789012:service/my-app-my-env-my-service with the ARN of your ECS service.
-
-    Repeat steps 2 and 3 to create a rule that stops your service at the end of the workday. The following commands create a rule that triggers every weekday at 6 PM and stops the service:
-
-Please note that this approach only works for services with a replication count of 1. If your service has a replication count greater than 1, you need to use a Lambda function to update the desired count of the service.
-
-## Strategies
-
-### app/averaging-down.py
-When a trader is in a losing position and decides to buy more shares of the same stock in the hope that it will turn around, this is commonly referred to as "averaging down" or "doubling down." Averaging down is a risky strategy that involves adding to a losing position by purchasing more shares at a lower price than the initial purchase price. The goal is to reduce the average cost per share and increase the chances of eventually reaching a breakeven point or realizing a profit when the stock's price rebounds.
-
-Here's a breakdown of averaging down:
-
-- Initial Purchase: The trader initially buys a certain number of shares at a higher price.
-- Price Decline: After the initial purchase, the stock's price starts to decline, resulting in a paper loss for the trader.
-- Averaging Down: Instead of cutting their losses or selling the existing position, the trader buys additional shares at a lower price, thereby lowering the average cost per share of their entire position.
-- Hope for Reversal: The trader's hope is that the stock's price will eventually turn around and rise above the new, lower average cost per share, allowing them to recover their losses or make a profit.
-
-Averaging down can be a tempting strategy because it appears to offer a chance to recover losses without admitting defeat by selling at a loss. However, it carries significant risks:
-
-- Losses Can Magnify: If the stock's price continues to decline, the trader's losses can become even larger because they have increased their position size.
-- Tying Up Capital: Averaging down ties up more capital in a losing position, preventing the trader from deploying their funds in potentially more profitable opportunities.
-- No Guarantee of a Reversal: There is no guarantee that the stock will rebound, and it could continue to decline or even become worthless.
-- Psychological Stress: Averaging down can lead to emotional stress and clouded judgment, as traders become emotionally attached to their losing positions.
-
-Averaging down should be approached with caution and should be part of a well-thought-out trading or investment plan. Traders should set clear stop-loss levels to limit potential losses and have a strategy for managing risk. It's also essential to have a plan for when to exit the position, whether it turns profitable or continues to decline. Risk management and diversification are key principles to keep in mind when considering averaging down or any trading strategy.
+You paste this JSON into the alert settings "Message" field in TradingView. You will also need to directly edit the "Webhook URL" field in TradingView to include the name of the endpoint you want to trigger. If anyone has an automated solution to creating alerts that doesn't have an ultra high overhead or violate TradingView T&C please let know.

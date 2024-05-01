@@ -7,11 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install pip requirements
-#COPY requirements.txt .
-#RUN python -m pip install -r requirements.txt
+EXPOSE 5000
 
 WORKDIR /app
-COPY . /app
+
+COPY ./ /app/
+
+RUN pip install --upgrade pip
+
+RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
 
 CMD ["python", "main.py"]

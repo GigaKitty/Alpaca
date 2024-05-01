@@ -24,6 +24,7 @@ $RECYCLE.BIN/
 */build/*
 *~
 .AppleDB
+data
 .AppleDesktop
 .AppleDouble
 .DocumentRevisions-V100

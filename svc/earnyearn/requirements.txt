@@ -1,0 +1,8 @@
+datetime2==0.9.4
+finnhub-python==2.4.19
+alpaca-py==0.17.0
+websockets==11.0.3
+apscheduler==3.10.4
+pandas==2.2.1
+pandas-ta==0.3.14b
+#TA-Lib==0.4.28
