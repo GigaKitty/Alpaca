@@ -45,8 +45,11 @@ def notional():
     return 10
 
 
-def trailing():
-    return True
+def trailing(data):
+    if data.get("trailing") == "False":
+        return False
+    else:
+        return True
 
 
 def trail_percent():

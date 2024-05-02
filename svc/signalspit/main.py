@@ -102,7 +102,6 @@ def trailing():
         invalid = {"canceled", "expired", "replaced", "pending_cancel"}
         valid = {"filled", "partially_filled"}
 
-        print(locals())
         if ord.status in invalid:
             break
         elif ord.status in valid:
@@ -239,7 +238,7 @@ def preprocess():
     g.data["qty"] = g.data.get("qty", calc.qty(g.data))
     g.data["side"] = g.data.get("side", calc.side())
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent())
-    g.data["trailing"] = g.data.get("trailing", calc.trailing())
+    g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))
     g.data["wiggle"] = g.data.get("wiggle", calc.wiggle())
 
     # Order

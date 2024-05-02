@@ -66,8 +66,6 @@ TradingView webhook processing service. This service listens for webhooks from T
 - [AWS Copilot](https://aws.github.io/copilot-cli/docs/getting-started/install/)
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
-- [Python 3.8](https://www.python.org/downloads/)
-- [Pipenv](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
 
 ### TradingView WebHook Alerts
 

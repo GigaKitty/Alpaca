@@ -6,6 +6,7 @@ import requests
 import websockets
 import asyncio
 import pandas as pd
+import pandas_ta as ta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -16,13 +17,14 @@ from apscheduler.triggers.cron import CronTrigger
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
 env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
+app = os.getenv("COPILOT_APPLICATION_NAME", "dev")
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
+hook_url = os.getenv("EARNYEARN_ORDER_ENDPOINT")
+
 
 auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 stream = "wss://stream.data.alpaca.markets/v2/sip"
 
-# @TODO: Make this URL dynamic but how based on other services?
-hook_url = f"https://signalspit.{env}.alpaca.gigakitty.com/market"
 # Set the display options
 pd.set_option("display.max_columns", None)
 pd.set_option("display.expand_frame_repr", False)
@@ -32,6 +34,7 @@ bar_number = 42
 subs = []
 websocket_connected = False
 dataframes = {}
+
 ########################################
 ########################################
 
@@ -42,7 +45,7 @@ async def start_scheduler():
     """
     scheduler = AsyncIOScheduler()
     final_hour = 16
-    print("Starting the scheduler 📅...")
+    print("Starting the scheduler 📅 ...")
     # Schedule fetch_earnings_calendar to run every minute from 09:30EST to 16:00EST on weekdays
     job = scheduler.add_job(
         fetch_earnings_calendar,
@@ -148,7 +151,11 @@ async def process_bar_data(data, strat):
     """
     global dataframes
 
-    data = json.loads(data)
+    if isinstance(data, str):
+        data = json.loads(data)
+    else:
+        print(f"Unexpected response type: {type(data)}")
+        return
     df = pd.DataFrame(data)
 
     if "S" not in df.columns:
@@ -211,13 +218,17 @@ async def calc_strat(strat, symbol):
     Calculates multiple strategies using the ta library
     """
     if isinstance(dataframes[symbol], pd.DataFrame) and len(dataframes[symbol]) < 35:
-        print(f"Not enough data to calculate 📈{strat}📈 on {symbol}")
+        print(f"Not enough data to calculate 📈 {strat} 📈 on {symbol}")
         return
 
     if strat == "macd":
-        print(f"🤓Calculating 📈{strat}📈 for {symbol}")
-        # @TODO: index reset to accomodate the json files indexing this may not be reliable for order of data
+        print(f"🤓 Calculating 📈{strat}📈 for {symbol}")
+        # print(finnhub_client.price_target(symbol))
+        # @ TODO: index reset to accomodate the json files indexing this may not be reliable for order of data
         dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
+        # @ TODO: need a tweakable time interval to calculate the MACD
+        # dataframes[symbol] = dataframes[symbol]["close"].resample("15T").mean()
+
         macd = dataframes[symbol].ta.macd(
             close="close", fast=12, slow=26, signal=9
         )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
@@ -283,10 +294,10 @@ async def socket(subs):
             websocket_connected = True
             # To make things easy we'll just unsub and re-sub with fresh ones.
             # print the number of unsubscribed symbols
-            print(f"Unsubscribing from {len(subs)} symbols.")
+            print(f"👎 Unsubscribing from {len(subs)} symbols. 👎")
             await websocket.send(unsub_message)
             # print the number of subscribed symbols
-            print(f"Subscribing to {len(subs)} symbols.")
+            print(f"👍 Subscribing to {len(subs)} symbols. 👍")
             await websocket.send(sub_message)
 
             while True:
@@ -294,7 +305,7 @@ async def socket(subs):
                     data = await websocket.recv()
                     await process_bar_data(data, "macd")
                 except websockets.ConnectionClosed:
-                    print(f"😭WebSocket connection closed. Reconnecting...🔌")
+                    print(f"😭 WebSocket connection closed. Reconnecting...🔌")
                     websocket_connected = False
                     break
         else:
