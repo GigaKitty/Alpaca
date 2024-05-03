@@ -1,3 +1,9 @@
+"""
+Calc class & functions are essentially trading rules that are used to calculate the values for the order
+Use the data object to get the values from the webhook and return the calculated value
+"""
+
+
 def profit():
     return 1
     # take the current market value of position
@@ -24,6 +30,8 @@ def get_current_price(data, api):
 def qty(data):
     """
     Calculate the quantity of shares to buy based on the risk value and the share price
+    Logic for qty is calculated as percentage of cash available to trade
+    Additional logic can be added to calculate the qty based on the risk value, percentage of portfolio, equal dollar investment, market cap weighting, risk mananagement, growth potential, sector allocation, etc.
     """
     cash = float(data["acc"].cash)
 

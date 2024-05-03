@@ -139,6 +139,9 @@ async def fetch_earnings_calendar():
     else:
         print("No earnings data found for the specified date range.")
 
+    # make the subs list unique just in case there are duplicates
+    subs = list(set(subs))
+
     await socket(subs)
 
 
@@ -222,7 +225,7 @@ async def calc_strat(strat, symbol):
         return
 
     if strat == "macd":
-        print(f"🤓 Calculating 📈{strat}📈 for {symbol}")
+        print(f"🤓 Calculating 📈 {strat} 📈 for {symbol}")
         # print(finnhub_client.price_target(symbol))
         # @ TODO: index reset to accomodate the json files indexing this may not be reliable for order of data
         dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
