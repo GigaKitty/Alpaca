@@ -61,6 +61,9 @@ def notional():
 
 
 def trailing(data):
+    """
+    Helps to determine if the order is a trailing order or not this is a postprocessing order type
+    """
     if data.get("trailing") == "False":
         return False
     else:
@@ -68,6 +71,9 @@ def trailing(data):
 
 
 def trail_percent():
+    """
+    Set the trailing percent value
+    """
     # 0.1 is the lowest it will accept
     # get current position in $ value and return 1% of that
     # @EXAMPLE: %1 of $100 is $1
