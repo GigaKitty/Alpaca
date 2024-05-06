@@ -116,6 +116,9 @@ async def fetch_earnings_calendar():
     # Configure your Finnhub API key here
     finnhub_client = finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY"))
 
+    # reset subs to empty list
+    subs = []
+    
     # Define the date range for the earnings calendar
     # For example, the next 7 days from today
     start_date = datetime.datetime.now().date()
@@ -139,9 +142,9 @@ async def fetch_earnings_calendar():
     else:
         print("No earnings data found for the specified date range.")
 
-    # make the subs list unique just in case there are duplicates
-    subs = list(set(subs))
 
+    # subs = list(set(subs))
+    print(f"📊 {len(subs)} symbols added to the WebSocket subscription list. 📊")
     await socket(subs)
 
 

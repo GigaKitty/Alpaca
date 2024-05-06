@@ -2,6 +2,7 @@ import json
 import os
 import time
 import websockets
+import asyncio
 
 from openai import OpenAI
 
@@ -53,7 +54,8 @@ async def news(assistant, thread):
             while True:
                 try:
                     data = await websocket.recv()
-                    asyncio.create_task(prompt_gpt(assistant, thread, data))
+                    # asyncio.create_task(prompt_gpt(assistant, thread, data))
+                    print(data)
                     print("--------------------------------------------")
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
@@ -93,7 +95,7 @@ def init_assistant(assistant_name):
 
         print(f"Assistant '{assistant.name}' created.")
         print(f"Assistant ID: {assistant.id}")
-
+        print(f"Assistant Instructions: {assistant.instructions}")
         thread = client.beta.threads.create()
         print(f"Thread ID: {thread.id}")
 
@@ -108,12 +110,11 @@ async def prompt_gpt(assistant, thread, data):
     print(thread)
     print("============================================================")
 
-    print("Simulating some processing time...")
-    await asyncio.sleep(42)  # sleep for 5 seconds
-    print("Processing complete!")
+    # print("Simulating some processing time...")
+    # await asyncio.sleep(42)  # sleep for 5 seconds
+    # print("Processing complete!")
 
     return
-
     message = client.beta.threads.messages.create(
         thread_id=thread.id, role="user", content=data
     )
