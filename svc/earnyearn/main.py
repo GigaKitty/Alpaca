@@ -80,6 +80,7 @@ def send_order(action, symbol, data):
     """
     data = {
         "action": action,
+        "side": "buy",
         "comment": "macd-earnyearn",
         "low": data["low"].iloc[-1],
         "high": data["high"].iloc[-1],
@@ -118,7 +119,7 @@ async def fetch_earnings_calendar():
 
     # reset subs to empty list
     subs = []
-    
+
     # Define the date range for the earnings calendar
     # For example, the next 7 days from today
     start_date = datetime.datetime.now().date()
@@ -141,7 +142,6 @@ async def fetch_earnings_calendar():
 
     else:
         print("No earnings data found for the specified date range.")
-
 
     # subs = list(set(subs))
     print(f"📊 {len(subs)} symbols added to the WebSocket subscription list. 📊")

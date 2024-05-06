@@ -39,13 +39,20 @@ def qty(data):
     if cash > 0:
         cash = round(cash * data["risk"])
         # @TODO: change to high low close dynamic based on side.
-        price = round(float(data.get("low")), 2)
+        price = round(float(data.get("low")), 1)
 
         qty = round(cash / price)
     else:
         qty = 1
 
     return qty
+
+
+def side(data):
+    if data.get("side") is None:
+        return data.get("action")
+    else:
+        return "buy"
 
 
 def notional():
@@ -65,11 +72,6 @@ def trail_percent():
     # get current position in $ value and return 1% of that
     # @EXAMPLE: %1 of $100 is $1
     return 0.1
-
-
-def side():
-    # change to long short later
-    return "buy"
 
 
 def profit_limit_price(data):
@@ -95,5 +97,9 @@ def wiggle():
     return False
 
 
-def risk():
-    return 0.01
+def risk(data):
+
+    if data.get("risk"):
+        return float(data.get("risk"))
+    else:
+        return 0.01

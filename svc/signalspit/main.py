@@ -48,6 +48,10 @@ orders = Blueprint("orders", __name__)
 
 @orders.route("/bracket", methods=["POST"])
 def bracket():
+    """
+    Places a bracket order based on WebHook data
+    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
+    """
     if g.data.get("sp") is True:
         try:
             calc_limit_price = round(calc.limit_price(g.data), 2)
@@ -232,11 +236,12 @@ def preprocess():
 
     # Calc
     # @NOTE: qty depends on risk so we calculate risk first
-    g.data["risk"] = g.data.get("risk", calc.risk())
+    g.data["action"] = g.data.get("action", "buy")
+    g.data["risk"] = g.data.get("risk", calc.risk(g.data))
     g.data["notional"] = g.data.get("notional", calc.notional())
     g.data["profit"] = g.data.get("profit", calc.profit())
     g.data["qty"] = g.data.get("qty", calc.qty(g.data))
-    g.data["side"] = g.data.get("side", calc.side())
+    g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent())
     g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))
     g.data["wiggle"] = g.data.get("wiggle", calc.wiggle())
