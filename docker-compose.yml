@@ -16,6 +16,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-dev}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET:-asdf}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT:-https://signalspit.dev.alpaca.gigakitty.com/market}
   signalspit:
     build:
       context: ./svc/signalspit

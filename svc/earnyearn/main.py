@@ -16,25 +16,25 @@ from apscheduler.triggers.cron import CronTrigger
 ########################################
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
-env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
 app = os.getenv("COPILOT_APPLICATION_NAME", "dev")
-tv_sig = os.getenv("TRADINGVIEW_SECRET")
+bar_number = 42
+dataframes = {}
+env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
 hook_url = os.getenv("EARNYEARN_ORDER_ENDPOINT")
-
-
-auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 stream = "wss://stream.data.alpaca.markets/v2/sip"
+subs = []
+timeframe = 1
+tv_sig = os.getenv("TRADINGVIEW_SECRET")
+websocket_connected = False
 
-# Set the display options
+# Auth Message json
+auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+
+# Set the display options to NO LIMITS!!!
 pd.set_option("display.max_columns", None)
 pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
-bar_number = 42
-subs = []
-websocket_connected = False
-dataframes = {}
-
 ########################################
 ########################################
 
@@ -71,37 +71,6 @@ async def start_scheduler():
         print(f"Job: {job}")
 
     scheduler.start()
-
-
-def send_order(action, symbol, data):
-    """
-    Sends a POST request to the TradingView webhook URL
-    required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
-    """
-    data = {
-        "action": action,
-        "side": "buy",
-        "comment": "macd-earnyearn",
-        "low": data["low"].iloc[-1],
-        "high": data["high"].iloc[-1],
-        "close": data["close"].iloc[-1],
-        "volume": data["volume"].iloc[-1],
-        "interval": "1m",
-        "signature": tv_sig,
-        "ticker": symbol,
-        "trailing": True,
-    }
-
-    # Sending a POST request with JSON data
-    response = requests.post(hook_url, json=data)
-
-    if response.status_code == 200:
-        try:
-            print("Pass", response.json())
-        except requests.exceptions.JSONDecodeError:
-            print("Response is not in JSON format.", response)
-    else:
-        print(f"HTTP Error encountered: {response.status_code}")
 
 
 async def fetch_earnings_calendar():
@@ -141,11 +110,61 @@ async def fetch_earnings_calendar():
             subs.append(earning["symbol"])
 
     else:
-        print("No earnings data found for the specified date range.")
+        print("😭😭😭No earnings data found for the specified date range.")
 
-    # subs = list(set(subs))
     print(f"📊 {len(subs)} symbols added to the WebSocket subscription list. 📊")
+
     await socket(subs)
+
+
+def send_order(action, symbol, data):
+    """
+    Sends a POST request to the TradingView webhook URL
+    required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
+    """
+    data = {
+        "action": action,
+        "side": "buy",
+        "comment": "macd-earnyearn",
+        "low": data["low"].iloc[-1],
+        "high": data["high"].iloc[-1],
+        "close": data["close"].iloc[-1],
+        "volume": data["volume"].iloc[-1],
+        "interval": "1m",
+        "signature": tv_sig,
+        "ticker": symbol,
+        "trailing": True,
+    }
+
+    # Sending a POST request with JSON data
+    response = requests.post(hook_url, json=data)
+
+    if response.status_code == 200:
+        try:
+            print("Pass", response.json())
+        except requests.exceptions.JSONDecodeError:
+            print("Response is not in JSON format.", response)
+    else:
+        print(f"HTTP Error encountered: {response}")
+
+
+def convert_timestamp(ts):
+    """
+    For some reason the timestamp data is inconsistent sometimes showing as a datetime format and sometimes as an epoch
+    This function converts the timestamp
+    """
+    if isinstance(ts, int):
+        # Convert from epoch to datetime
+        return pd.to_datetime(ts, unit="ms").tz_localize("UTC")
+    else:
+        # Convert string to datetime
+        dt = pd.to_datetime(ts)
+        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+            # The timestamp is timezone-naive, localize it
+            return dt.tz_localize("UTC")
+        else:
+            # The timestamp is timezone-aware, convert it
+            return dt.tz_convert("UTC")
 
 
 async def process_bar_data(data, strat):
@@ -154,6 +173,7 @@ async def process_bar_data(data, strat):
     Updates the dataframes dictionary with the latest data
     Calls the calc_strat function to calculate the strategy
     Saves the data to a JSON file for future reference in data folder
+    @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data#bars
     """
     global dataframes
 
@@ -190,15 +210,14 @@ async def process_bar_data(data, strat):
         }
     )
 
-    for symbol, group in df.groupby("symbol"):
-        group = group.set_index(
-            "timestamp"
-        )  # Use timestamp as index for MACD calculation
+    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
+    for symbol, group in df.groupby("symbol"):
         # Check if the symbol already has a DataFrame
         if symbol in dataframes:
             # Append the new data
             dataframes[symbol] = pd.concat([dataframes[symbol], group])
+
             dataframes[symbol].to_json(
                 f"./data/{symbol}.json", orient="records", lines=True
             )
@@ -214,7 +233,11 @@ async def process_bar_data(data, strat):
                 # If the file doesn't exist, just assign group to dataframes[symbol]
                 dataframes[symbol] = group
                 print(f"New dataframe group {symbol}")
-                continue
+
+        # This is attempting to convert all timestamps to a uniform format and will apply on all rows in the timestamp column for the dataframe
+        dataframes[symbol]["timestamp"] = dataframes[symbol]["timestamp"].apply(
+            convert_timestamp
+        )
 
         await calc_strat(strat, symbol)
 
@@ -223,22 +246,29 @@ async def calc_strat(strat, symbol):
     """
     Calculates multiple strategies using the ta library
     """
-    if isinstance(dataframes[symbol], pd.DataFrame) and len(dataframes[symbol]) < 35:
-        print(f"Not enough data to calculate 📈 {strat} 📈 on {symbol}")
-        return
+    if (
+        isinstance(dataframes[symbol], pd.DataFrame)
+        and len(dataframes[symbol]) < bar_number * timeframe
+    ):
+        return print(
+            f"🤖 Not enough data to calculate 📈 {strat} 📈 on {symbol} there are {len(dataframes[symbol])} rows needs {bar_number}"
+        )
 
     if strat == "macd":
         print(f"🤓 Calculating 📈 {strat} 📈 for {symbol}")
-        # print(finnhub_client.price_target(symbol))
         # @ TODO: index reset to accomodate the json files indexing this may not be reliable for order of data
-        dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
+        # dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
         # @ TODO: need a tweakable time interval to calculate the MACD
         # dataframes[symbol] = dataframes[symbol]["close"].resample("15T").mean()
 
+        # macd = macd.reshet_index(drop=True)
+        dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
         macd = dataframes[symbol].ta.macd(
             close="close", fast=12, slow=26, signal=9
         )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
-
+        # print(macd)
+        # print(macd)
+        # return
         if (
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
@@ -325,6 +355,7 @@ async def main():
     """
     await start_scheduler()
     while True:
+        # await fetch_earnings_calendar()
         await asyncio.sleep(1)
 
 
