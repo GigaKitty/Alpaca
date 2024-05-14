@@ -80,6 +80,7 @@ async def fetch_earnings_calendar():
     List of symbols is stored in the subs global variable
     Symbols are used to subscribe to the WebSocket for real-time data
     Updates the subs list with the latest earnings data
+    @SEE: https://finnhub.io/docs/api/earnings-calendar
     """
     global subs
 
@@ -107,7 +108,15 @@ async def fetch_earnings_calendar():
     # Check if there are earnings in the fetched data
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
-            subs.append(earning["symbol"])
+
+            if (
+                earning["year"] == datetime.datetime.now().year  # This year
+                and earning["epsEstimate"] is not None
+                and earning["epsEstimate"] >= 1
+                and earning["revenueEstimate"] is not None
+                and earning["revenueEstimate"] >= 2.5e8
+            ):  # Filter out low volume stocks 2.5e8 is basically 250million
+                subs.append(earning["symbol"])
 
     else:
         print("😭😭😭No earnings data found for the specified date range.")
@@ -232,7 +241,7 @@ async def process_bar_data(data, strat):
             else:
                 # If the file doesn't exist, just assign group to dataframes[symbol]
                 dataframes[symbol] = group
-                print(f"New dataframe group {symbol}")
+                print(f"🧮 New dataframe group {symbol}")
 
         # This is attempting to convert all timestamps to a uniform format and will apply on all rows in the timestamp column for the dataframe
         dataframes[symbol]["timestamp"] = dataframes[symbol]["timestamp"].apply(
@@ -256,31 +265,28 @@ async def calc_strat(strat, symbol):
 
     if strat == "macd":
         print(f"🤓 Calculating 📈 {strat} 📈 for {symbol}")
-        # @ TODO: index reset to accomodate the json files indexing this may not be reliable for order of data
-        # dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
-        # @ TODO: need a tweakable time interval to calculate the MACD
-        # dataframes[symbol] = dataframes[symbol]["close"].resample("15T").mean()
 
-        # macd = macd.reshet_index(drop=True)
-        dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
-        macd = dataframes[symbol].ta.macd(
+        # dataframes[symbol] = (
+        #    dataframes[symbol]["close"].resample(f"{timeframe}min").mean()
+        # )
+        df[symbol] = dataframes[symbol].reset_index(drop=True)
+
+        macd = df[symbol].ta.macd(
             close="close", fast=12, slow=26, signal=9
         )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
-        # print(macd)
-        # print(macd)
-        # return
+
         if (
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD Bullish🔺🐂🔺 crossover for {symbol}")
-            send_order("buy", symbol, dataframes[symbol])
+            send_order("buy", symbol, df[symbol])
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD Bearish🔻🐻🔻 crossover for {symbol}")
-            send_order("sell", symbol, dataframes[symbol])
+            send_order("sell", symbol, df[symbol])
     # @TODO: Add more strategies here
 
 
