@@ -1,4 +1,3 @@
-version: "3"
 services:
   earnyearn:
     build:
@@ -32,21 +31,21 @@ services:
       - AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET:-asdf}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
-  sentimentsheperd:
-    build:
-      context: ./svc/sentimentsheperd
-      dockerfile: ./Dockerfile
-    volumes:
-      - ./svc/sentimentsheperd/:/app/
-    environment:
-      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-      - ENVIRONMENT=${ENVIRONMENT:-dev}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-asdf}
+  #  sentimentsheperd:
+  #    build:
+  #      context: ./svc/sentimentsheperd
+  #      dockerfile: ./Dockerfile
+  #    volumes:
+  #      - ./svc/sentimentsheperd/:/app/
+  #    environment:
+  #      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+  #      - AWS_REGION=${AWS_REGION:-us-east-1}
+  #      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+  #      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+  #      - ENVIRONMENT=${ENVIRONMENT:-dev}
+  #      - OPENAI_API_KEY=${OPENAI_API_KEY:-asdf}
   purrstream:
     build:
       context: ./svc/purrstream

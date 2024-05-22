@@ -269,9 +269,9 @@ async def calc_strat(strat, symbol):
         # dataframes[symbol] = (
         #    dataframes[symbol]["close"].resample(f"{timeframe}min").mean()
         # )
-        df[symbol] = dataframes[symbol].reset_index(drop=True)
+        dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
 
-        macd = df[symbol].ta.macd(
+        macd = dataframes[symbol].ta.macd(
             close="close", fast=12, slow=26, signal=9
         )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
 
@@ -280,13 +280,13 @@ async def calc_strat(strat, symbol):
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD Bullish🔺🐂🔺 crossover for {symbol}")
-            send_order("buy", symbol, df[symbol])
+            send_order("buy", symbol, dataframes[symbol])
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
             print(f"MACD Bearish🔻🐻🔻 crossover for {symbol}")
-            send_order("sell", symbol, df[symbol])
+            send_order("sell", symbol, dataframes[symbol])
     # @TODO: Add more strategies here
 
 
