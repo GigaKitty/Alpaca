@@ -1,5 +1,4 @@
 # Alpaca
-buy_me_a_coffee: gigakitty
 
 Portable collection of microservices for Alpaca trading that deploy to AWS ECS using Copilot. Services are split into different tools and strategies for trading. Some services talk to other services, while others are standalone. The project currently uses copilot to deploy microservices so they are easy to manage and scale.
 
