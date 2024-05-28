@@ -29,3 +29,4 @@ tzdata==2023.3
 urllib3==1.26.16
 websockets==11.0.3
 Werkzeug==2.3.7
+pyngrok==7.1.6

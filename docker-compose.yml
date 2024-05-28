@@ -20,6 +20,9 @@ services:
       - ./svc/signalspit/:/app/
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - NGROK_ENABLED=${NGROK_ENABLED:-True}
+      - NGROK_DOMAIN=${NGROK_DOMAIN}
+      - NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET:-asdf}
       - ENVIRONMENT=${ENVIRONMENT:-dev}

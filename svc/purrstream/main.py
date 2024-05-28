@@ -40,6 +40,7 @@ async def alpaca_websocket():
                     data = await websocket.recv()
                     # asyncio.create_task(prompt_gpt(assistant, thread, data))
                     print(data)
+                    broadcast(data)
                     print("--------------------------------------------")
                 except websockets.ConnectionClosed:
                     print("WebSocket connection closed")
@@ -72,7 +73,7 @@ async def broadcast(message):
 
 
 async def main():
-    server_task = websockets.serve(server, "localhost", 8765)
+    server_task = websockets.serve(server, "0.0.0.0", 8765)
     alpaca_task = alpaca_websocket()
 
     await asyncio.gather(server_task, alpaca_task)

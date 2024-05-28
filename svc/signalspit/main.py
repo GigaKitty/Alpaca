@@ -7,14 +7,12 @@ from alpaca.trading.requests import (
     StopLossRequest,
     TrailingStopOrderRequest,
 )
-
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
-from utils import position, sec, order, account, calc
+from utils import position, sec, order, account, calc, ngrok
 import json
 import os
 import threading
 import asyncio
-import random
 import random
 import requests
 import string
@@ -24,9 +22,9 @@ import time
 #### ENVIRONMENT SETUP ################################
 #######################################################
 """
- Set the environment variable COPILOT_ENVIRONMENT_NAME to main or dev
+ Set the environment variable ENVIRONMENT_NAME to main or dev
 """
-paper = True if os.getenv("COPILOT_ENVIRONMENT_NAME", "dev") != "main" else False
+paper = True if os.getenv("ENVIRONMENT_NAME", "dev") != "main" else False
 
 """
 Initialize the Alpaca API
@@ -178,6 +176,33 @@ def notional():
         return jsonify(skip_message), 204
 
 
+@orders.route("/crypto", methods=["POST"])
+def crypto():
+    # Check if we should process the request
+    if g.data.get("sp") is True:
+        try:
+            market_order_data = MarketOrderRequest(
+                symbol=g.data.get("ticker"),
+                notional=g.data.get("notional"),
+                side=g.data.get("action"),
+                time_in_force=TimeInForce.IOC,
+                after_hours=g.data.get("after_hours"),
+                client_order_id=g.data.get("order_id"),
+            )
+            app.logger.debug("Market Data: %s", market_order_data)
+            market_order = api.submit_order(order_data=market_order_data)
+            app.logger.debug("Market Order: %s", market_order)
+            response_data = {"message": "Webhook received and processed successfully"}
+            return jsonify(response_data), 200
+        except Exception as e:
+            app.logger.error("Error processing request: %s", str(e))
+            error_message = {"error": "Failed to process webhook request"}
+            return jsonify(error_message), 400
+    else:
+        skip_message = {"Skip": "Skip webhook"}
+        return jsonify(skip_message), 204
+
+
 @orders.route("/market", methods=["POST"])
 def market():
     """
@@ -239,7 +264,7 @@ def preprocess():
     g.data["action"] = g.data.get("action", "buy")
     g.data["risk"] = g.data.get("risk", calc.risk(g.data))
     g.data["notional"] = g.data.get("notional", calc.notional(g.data))
-    g.data["profit"] = g.data.get("profit", calc.profit(g.data))
+    # g.data["profit"] = g.data.get("profit", calc.profit(g.data))
     g.data["qty"] = g.data.get("qty", calc.qty(g.data))
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
@@ -298,4 +323,8 @@ def log_request_info():
 #######################################################
 if __name__ == "__main__":
     app.register_blueprint(orders)
-    app.run(host="0.0.0.0", port=5000, debug=paper)
+    if os.getenv('NGROK_ENABLED') == True:
+        ngrok.init()
+        app.run(debug=paper)
+    else:
+        app.run(host="0.0.0.0", port=5000, debug=paper)
