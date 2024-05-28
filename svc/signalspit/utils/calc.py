@@ -1,19 +1,19 @@
+import position
+
 """
 Calc class & functions are essentially trading rules that are used to calculate the values for the order
 Use the data object to get the values from the webhook and return the calculated value
 """
 
 
-def profit():
-    return 1
-    # take the current market value of position
-    # if that is more than 1% profit then return that price/number
-    #
-    # value = float(pos.market_value) * 0.01
-    # if value <= 0:
-    #    value = 10
+def profit(data):
+    if data.pos is not False:
+        market_value = float(pos.market_value)
 
-    # return value
+    # if unrealized_pl is greater than 1% of market_value
+    if float(data.pos.unrealized_pl) >= float(data.pos.market_value) * data["risk"]:
+        api.close_position(data.get("symbol"))
+        logger.info("Position closed")
 
 
 # Function to get the current price of a ticker
@@ -35,7 +35,6 @@ def qty(data):
     """
     cash = float(data["acc"].cash)
 
-    print(cash)
     if cash > 0:
         cash = round(cash * data["risk"])
         # @TODO: change to high low close dynamic based on side.
@@ -56,8 +55,18 @@ def side(data):
 
 
 def notional():
-    # use the risk value
-    return 10
+    """
+    Calculate the notional value of the order
+    This is the total value of the order based on cash available to trade
+    If cash is $1000 and risk is 0.01, then notional value is $10
+    """
+    cash = float(data["acc"].cash)
+    if cash > 0:
+        cash = round(cash * data["risk"])
+        price = round(float(data.get("low")), 1)
+        return cash
+    else:
+        return 10
 
 
 def trailing(data):
