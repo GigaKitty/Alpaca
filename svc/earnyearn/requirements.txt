@@ -1,4 +1,5 @@
 datetime2==0.9.4
+aiohttp==3.9.5
 finnhub-python==2.4.19
 alpaca-py==0.17.0
 websockets==11.0.3

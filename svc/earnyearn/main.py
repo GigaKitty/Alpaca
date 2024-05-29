@@ -2,6 +2,7 @@ import datetime
 import finnhub
 import os
 import json
+import logging
 import requests
 import websockets
 import asyncio
@@ -108,7 +109,6 @@ async def fetch_earnings_calendar():
     # Check if there are earnings in the fetched data
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
-
             if (
                 earning["year"] == datetime.datetime.now().year  # This year
                 and earning["epsEstimate"] is not None
@@ -302,7 +302,6 @@ async def socket(subs):
     global websocket_connected, auth_message
 
     async with websockets.connect(stream) as websocket:
-
         if not websocket_connected:
             await websocket.send(auth_message)
 
@@ -355,18 +354,49 @@ async def socket(subs):
             websocket_connected = False
 
 
-async def main():
-    """
-    Main function to start the scheduler and run the event loop
-    """
-    await start_scheduler()
-    while True:
-        # await fetch_earnings_calendar()
-        await asyncio.sleep(1)
+logging.basicConfig(level=logging.INFO)
 
 
-if __name__ == "__main__":
-    """
-    Entry point for the application
-    """
-    asyncio.run(main())
+async def parse_message(message):
+    print(f"Message: {message}")
+    return
+    try:
+        data = json.loads(message)
+        logging.info(f"Parsed message: {data}")
+
+        # Process the parsed data here
+        # For example, extract trade details
+        if (
+            "T" in data and data["T"] == "t"
+        ):  # Assuming 'T' indicates the type and 't' is for trades
+            symbol = data["S"]  # Symbol
+            trade_price = data["p"]  # Trade price
+            trade_volume = data["v"]  # Trade volume
+            logging.info(
+                f"Trade - Symbol: {symbol}, Price: {trade_price}, Volume: {trade_volume}"
+            )
+
+        # Add more parsing logic based on the structure of the messages
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to decode JSON message: {e}")
+    except KeyError as e:
+        logging.error(f"Key error: {e}")
+
+    asyncio.run(tail_purrstream())
+
+
+# async def main():
+#    """
+#    Main function to start the scheduler and run the event loop
+#    """
+#    await start_scheduler()
+#    while True:
+#        # await fetch_earnings_calendar()
+#        await asyncio.sleep(1)
+#
+#
+# if __name__ == "__main__":
+#    """
+#    Entry point for the application
+#    """
+#    asyncio.run(main())

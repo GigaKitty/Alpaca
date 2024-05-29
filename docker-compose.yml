@@ -3,29 +3,36 @@ services:
     build:
       context: ./svc/earnyearn
       dockerfile: ./Dockerfile
+    restart: always
+    depends_on:
+      - purrstream
+    networks:
+      - purrnetwork
     volumes:
       - ./svc/earnyearn/:/app/
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT=${ENVIRONMENT:-dev}
-      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET:-asdf}
+      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT:-https://signalspit.dev.alpaca.gigakitty.com/market}
-  signalspit:
-    build:
-      context: ./svc/signalspit
-      dockerfile: ./Dockerfile
-    volumes:
-      - ./svc/signalspit/:/app/
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - NGROK_ENABLED=${NGROK_ENABLED:-True}
-      - NGROK_DOMAIN=${NGROK_DOMAIN}
-      - NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET:-asdf}
-      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+  #slanger:
+  #  build:
+  #    context: ./svc/slanger
+  #    dockerfile: ./Dockerfile
+  #  volumes:
+  #    - ./svc/slanger/:/app/
+  #  ports:
+  #    - 5000:5000
+  #  environment:
+  #    - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #    - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #    - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+  #    - NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}
+  #    - NGROK_DOMAIN=${NGROK_DOMAIN}
+  #    - NGROK_ENABLED=${NGROK_ENABLED}
+  #    - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
   #  sentimentsheperd:
   #    build:
   #      context: ./svc/sentimentsheperd
@@ -47,9 +54,16 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - 8765:8765
+    restart: always
+    networks:
+      - purrnetwork
     volumes:
       - ./svc/purrstream/:/app/
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+
+networks:
+  purrnetwork:
+    driver: bridge

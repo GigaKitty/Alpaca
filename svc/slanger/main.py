@@ -323,8 +323,4 @@ def log_request_info():
 #######################################################
 if __name__ == "__main__":
     app.register_blueprint(orders)
-    if os.getenv('NGROK_ENABLED') == True:
-        ngrok.init()
-        app.run(debug=paper)
-    else:
-        app.run(host="0.0.0.0", port=5000, debug=paper)
+    app.run(host="0.0.0.0", port=5000, debug=paper)

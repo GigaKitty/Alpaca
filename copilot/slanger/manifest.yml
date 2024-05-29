@@ -1,4 +1,4 @@
-name: signalspit
+name: slanger
 type: Load Balanced Web Service
 
 http:
@@ -7,7 +7,7 @@ http:
   interval: 1h
 
 image:
-  build: ./svc/signalspit/Dockerfile
+  build: ./svc/slanger/Dockerfile
   port: 5000
 
 cpu: 256
@@ -24,4 +24,3 @@ secrets:
   APCA_API_KEY_ID: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_KEY_ID
   APCA_API_SECRET_KEY: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/APCA_API_SECRET_KEY
   TRADINGVIEW_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/TRADINGVIEW_SECRET
-
