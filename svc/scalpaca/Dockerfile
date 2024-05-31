@@ -1,3 +1,4 @@
+
 # For more information, please refer to https://aka.ms/vscode-docker-python
 FROM python:3.11.5-slim-bullseye
 
@@ -6,6 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8765 8000
 
 WORKDIR /app
 

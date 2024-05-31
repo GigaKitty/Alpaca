@@ -15,6 +15,7 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
 import boto3
+import os
 import json
 import logging
 import asyncio
@@ -28,14 +29,6 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-
-# Define the secrets that are pulled from AWS.
-# @NOTE: we are not going to use an .env file for anything and all secrets will be pulled from Secrets Manager
-secrets = get_secrets()
-api = TradingClient(
-    secrets.get("APCA_API_KEY_ID"), secrets.get("APCA_API_SECRET_KEY"), paper=True
-)
 
 
 ###############################################
@@ -65,12 +58,12 @@ async def main():
     while True:
         logger.info("----------------------------------------------------")
 
-        pred = stockPred()
-        global predicted_price
-        predicted_price = pred.predictModel()
-        logger.info("Predicted Price is {0}".format(predicted_price))
-        l1 = loop.create_task(check_condition())
-        await asyncio.wait([l1])
+        # pred = stockPred()
+        # global predicted_price
+        # predicted_price = pred.predictModel()
+        # logger.info("Predicted Price is {0}".format(predicted_price))
+        # l1 = loop.create_task(check_condition())
+        # await asyncio.wait([l1])
         await asyncio.sleep(waitTime)
 
 
@@ -106,20 +99,24 @@ class stockPred:
         self.output_size = output_size
 
     def getAllData(self):
-
         # Alpaca Market Data Client
+        api_key = os.getenv("APCA_API_KEY_ID")
+        api_sec = os.getenv("APCA_API_SECRET_KEY")
         data_client = CryptoHistoricalDataClient()
+        print(data_client)
 
         time_diff = datetime.now() - relativedelta(hours=1000)
         logger.info(
             "Getting bar data for {0} starting from {1}".format(trading_pair, time_diff)
         )
+        ######
         # Defining Bar data request parameters
         request_params = CryptoBarsRequest(
             symbol_or_symbols=[trading_pair], timeframe=TimeFrame.Hour, start=time_diff
         )
         # Get the bar data from Alpaca
         df = data_client.get_crypto_bars(request_params).df
+        #####
         global current_price
         current_price = df.iloc[-1]["close"]
         return df
@@ -163,7 +160,6 @@ class stockPred:
         return model
 
     def trainModel(self, x, y):
-
         x_train = x[: len(x) - 1]
         y_train = y[: len(x) - 1]
         model = self.LSTM_model(x_train)

@@ -1,3 +1,8 @@
+###########
+# https://alpaca.markets/learn/automated-crypto-scalping-with-alpaca/
+#### UPDATE
+#### UPDATE
+#### UPDATE
 from alpaca.data.historical import CryptoHistoricalDataClient
 from alpaca.data.requests import *
 
@@ -9,9 +14,9 @@ from alpaca.trading.enums import OrderSide, TimeInForce, OrderStatus
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import json
+import os
 import logging
 import asyncio
-from utils import auth
 
 # ENABLE LOGGING - options, DEBUG,INFO, WARNING?
 logging.basicConfig(
@@ -21,40 +26,53 @@ logger = logging.getLogger(__name__)
 
 
 # Alpaca Trading Client
-secrets = auth.get_secrets()
-trading_client = TradingClient(
-    secrets.get("APCA_API_KEY_ID"), secrets.get("APCA_API_SECRET_KEY"), paper=True
+"""
+ Set the environment variable ENVIRONMENT_NAME to main or dev
+"""
+paper = True if os.getenv("ENVIRONMENT_NAME", "dev") != "main" else False
+
+"""
+Initialize the Alpaca API
+If it's dev i.e. paper trading then it uses the paper trading API
+"""
+api = TradingClient(
+    os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY"), paper=paper
 )
 
 # Alpaca Market Data Client
-data_client = CryptoHistoricalDataClient()
+data_client = CryptoHistoricalDataClient(
+    os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY")
+)
+print("crypto")
+#### UPDATE
+#### UPDATE
+#### UPDATE
+###########
 
+# #########################
+# @TODO: make all of these dynamic
 # Trading variables
-trading_pair = "ETH/USD"
-notional_size = 20000
+# #########################
+trading_pair = "ETH/USD"  # @TODO: make dynamic
+notional_size = 20000  # @TODO: make dynamic
 spread = 0.00
 total_fees = 0
 buying_price, selling_price = 0.00, 0.00
 buy_order_price, sell_order_price = 0.00, 0.00
-
 buy_order, sell_order = None, None
 current_price = 0.00
 client_order_str = "scalping"
-
 # Wait time between each bar request
 waitTime = 60
-
 # Time range for the latest bar data
 diff = 5
-
 # Current position of the trading pair on Alpaca
 current_position = 0.00
-
 # Threshold percentage to cut losses (0.5%)
 cut_loss_threshold = 0.005
-
 # Alpaca trading fee is 0.3% (tier based)
 trading_fee = 0.003
+##########################
 
 
 async def main():
@@ -75,7 +93,7 @@ async def main():
 async def get_crypto_bar_data(trading_pair):
     import requests
 
-    url = "https://data.alpaca.markets/v1beta3/crypto/us/bars?symbols=ETH%2FUSD&timeframe=10Min&limit=1000&sort=asc"
+    url = "https://data.alpaca.markets/v1beta3/crypto/us/bars?symbols=ETH%2FUSD&timeframe=10Min&limit=1000&sort=asc"  # @TODO is this how it's done?
     headers = {"accept": "application/json"}
     response = requests.get(url, headers=headers)
 
@@ -98,7 +116,6 @@ async def get_crypto_bar_data(trading_pair):
     buying_price, selling_price = calc_order_prices(bars_df)
 
     if len(get_positions()) > 0:
-
         current_position = float(json.loads(get_positions()[0].json())["qty"])
 
         buy_order = False
@@ -108,7 +125,6 @@ async def get_crypto_bar_data(trading_pair):
 
 
 def calc_order_prices(bars_df):
-
     global spread, total_fees, current_price
     max_high = bars_df["high"].max()
     min_low = bars_df["low"].min()
@@ -148,7 +164,6 @@ def get_positions():
 
 
 def get_open_orders():
-
     orders = trading_client.get_orders()
 
     num_orders = len(orders)
@@ -209,7 +224,7 @@ async def post_alpaca_order(buy_price, sell_price, side):
                 time_in_force=TimeInForce.GTC,
             )
             sell_limit_order = trading_client.submit_order(order_data=limit_order_data)
-            sell_order_price = sell_price
+            #            sell_order_price = sell_price
             buy_order_price = buy_price
             # sell_order = True
             logger.info(
@@ -312,6 +327,5 @@ async def check_condition():
             )
 
 
+# Run the main function
 loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-loop.close()

@@ -1,16 +1,18 @@
-import datetime
+import asyncio
 import finnhub
-import os
 import json
 import logging
-import requests
-import websockets
-import asyncio
+import os
 import pandas as pd
+import numpy as np
 import pandas_ta as ta
-
+import pymarketstore as pymkts
+import redis.asyncio as aioredis
+import requests
+import datetime
+import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+
 
 ########################################
 ### SETUP ENV
@@ -21,12 +23,13 @@ app = os.getenv("COPILOT_APPLICATION_NAME", "dev")
 bar_number = 42
 dataframes = {}
 env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
+fetch_pause = 60
 hook_url = os.getenv("EARNYEARN_ORDER_ENDPOINT")
 stream = "wss://stream.data.alpaca.markets/v2/sip"
-subs = []
-timeframe = 1
+earnings = []
+timeframe = "1Min"
+attribute_group = "OHLCV"
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
-websocket_connected = False
 
 # Auth Message json
 auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
@@ -36,60 +39,32 @@ pd.set_option("display.max_columns", None)
 pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
+
+# Redis connection details
+redis_host = os.getenv("REDIS_HOST", "localhost")
+redis_port = int(os.getenv("REDIS_PORT", 6379))
+
+marketstore_host = os.getenv("MARKETSTORE_HOST", "localhost")
+marketstore_client = pymkts.Client(f"{marketstore_host}/rpc")
+logging.basicConfig(level=logging.INFO)
 ########################################
 ########################################
-
-
-async def start_scheduler():
-    """
-    Runs on a specific schedule and shuts down after hours
-    """
-    scheduler = AsyncIOScheduler()
-    final_hour = 16
-    print("Starting the scheduler 📅 ...")
-    # Schedule fetch_earnings_calendar to run every minute from 09:30EST to 16:00EST on weekdays
-    job = scheduler.add_job(
-        fetch_earnings_calendar,
-        CronTrigger(
-            day_of_week="mon-fri",
-            hour=f"9-{final_hour}",
-            minute="*/1",
-            timezone="America/New_York",
-        ),
-    )
-
-    scheduler.add_job(
-        lambda: scheduler.remove_job(job.id),
-        CronTrigger(
-            day_of_week="mon-fri",
-            hour=final_hour,
-            minute=0,
-            timezone="America/New_York",
-        ),
-    )
-
-    for job in scheduler.get_jobs():
-        print(f"Job: {job}")
-
-    scheduler.start()
 
 
 async def fetch_earnings_calendar():
     """
     Fetches the earnings calendar for the next 7 days from Finnhub API
-    Provides a list of symbols for the WebSocket subscription
-    List of symbols is stored in the subs global variable
-    Symbols are used to subscribe to the WebSocket for real-time data
-    Updates the subs list with the latest earnings data
+    List of symbols is stored in the earnings global variable
+    Updates the earnings list with the latest earnings data
     @SEE: https://finnhub.io/docs/api/earnings-calendar
     """
-    global subs
+    global earnings
 
     # Configure your Finnhub API key here
     finnhub_client = finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY"))
 
-    # reset subs to empty list
-    subs = []
+    # reset earnings to empty list
+    earnings = []
 
     # Define the date range for the earnings calendar
     # For example, the next 7 days from today
@@ -116,14 +91,13 @@ async def fetch_earnings_calendar():
                 and earning["revenueEstimate"] is not None
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million
-                subs.append(earning["symbol"])
+                earnings.append(earning["symbol"])
 
     else:
-        print("😭😭😭No earnings data found for the specified date range.")
+        print("😭 No earnings data found for the specified date range.")
 
-    print(f"📊 {len(subs)} symbols added to the WebSocket subscription list. 📊")
-
-    await socket(subs)
+    print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
+    print(f"{earnings}")
 
 
 def send_order(action, symbol, data):
@@ -157,121 +131,90 @@ def send_order(action, symbol, data):
         print(f"HTTP Error encountered: {response}")
 
 
-def convert_timestamp(ts):
-    """
-    For some reason the timestamp data is inconsistent sometimes showing as a datetime format and sometimes as an epoch
-    This function converts the timestamp
-    """
-    if isinstance(ts, int):
-        # Convert from epoch to datetime
-        return pd.to_datetime(ts, unit="ms").tz_localize("UTC")
-    else:
-        # Convert string to datetime
-        dt = pd.to_datetime(ts)
-        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-            # The timestamp is timezone-naive, localize it
-            return dt.tz_localize("UTC")
-        else:
-            # The timestamp is timezone-aware, convert it
-            return dt.tz_convert("UTC")
-
-
-async def process_bar_data(data, strat):
-    """
-    Processes the bar data received from the WebSocket
-    Updates the dataframes dictionary with the latest data
-    Calls the calc_strat function to calculate the strategy
-    Saves the data to a JSON file for future reference in data folder
-    @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data#bars
-    """
-    global dataframes
-
-    if isinstance(data, str):
-        data = json.loads(data)
-    else:
-        print(f"Unexpected response type: {type(data)}")
-        return
-    df = pd.DataFrame(data)
-
-    if "S" not in df.columns:
-        return
-
-    if df.isnull().values.any():
-        print("DataFrame contains NaN values.")
-        return
-
-    # Ensure the 'o', 'h', 'l', 'c', and 'v' columns are numeric
-    df[["o", "h", "l", "c", "v"]] = df[["o", "h", "l", "c", "v"]].apply(pd.to_numeric)
-
-    # convert t o h l c v df columns to float
-    df[["o", "h", "l", "c", "v"]] = df[["o", "h", "l", "c", "v"]].astype(float)
-
-    # conform with the data structure for the MACD calculation
-    df = df.rename(
-        columns={
-            "S": "symbol",
-            "t": "timestamp",
-            "o": "open",
-            "h": "high",
-            "l": "low",
-            "c": "close",
-            "v": "volume",
-        }
-    )
-
-    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
-
-    for symbol, group in df.groupby("symbol"):
-        # Check if the symbol already has a DataFrame
-        if symbol in dataframes:
-            # Append the new data
-            dataframes[symbol] = pd.concat([dataframes[symbol], group])
-
-            dataframes[symbol].to_json(
-                f"./data/{symbol}.json", orient="records", lines=True
-            )
-        else:
-            # Create a new DataFrame for this symbol
-            if os.path.exists(f"./data/{symbol}.json"):
-                load_df = pd.read_json(
-                    f"./data/{symbol}.json", orient="records", lines=True
-                )
-
-                dataframes[symbol] = pd.concat([load_df, group])
-            else:
-                # If the file doesn't exist, just assign group to dataframes[symbol]
-                dataframes[symbol] = group
-                print(f"🧮 New dataframe group {symbol}")
-
-        # This is attempting to convert all timestamps to a uniform format and will apply on all rows in the timestamp column for the dataframe
-        dataframes[symbol]["timestamp"] = dataframes[symbol]["timestamp"].apply(
-            convert_timestamp
-        )
-
-        await calc_strat(strat, symbol)
-
-
-async def calc_strat(strat, symbol):
+async def calc_strat(ticker, data, strat):
     """
     Calculates multiple strategies using the ta library
     """
-    if (
-        isinstance(dataframes[symbol], pd.DataFrame)
-        and len(dataframes[symbol]) < bar_number * timeframe
-    ):
-        return print(
-            f"🤖 Not enough data to calculate 📈 {strat} 📈 on {symbol} there are {len(dataframes[symbol])} rows needs {bar_number}"
+    df = pd.DataFrame(data)
+
+    try:
+        df["Epoch"] = pd.to_datetime(df["Epoch"], errors="coerce")
+        if df["Epoch"].isnull().any():
+            logging.error("Error converting 'Epoch' to datetime. Some values are NaT.")
+        else:
+            df.set_index("Epoch", inplace=True)
+            logging.info("Index set successfully.")
+    except Exception as e:
+        logging.error(f"Failed to set index: {e}")
+
+    try:
+        # Calculate MACD
+        macd = ta.macd(df["Close"])
+        df = df.join(macd)
+
+        # Calculate RSI
+        df["RSI"] = ta.rsi(df["Close"])
+
+        # Calculate Bollinger Bands
+        bb = ta.bbands(df["Close"])
+        df = df.join(bb)
+
+        logging.info("Technical indicators calculated successfully.")
+    except Exception as e:
+        logging.error(f"Error calculating technical indicators: {e}")
+
+    try:
+        anomalies = pd.DataFrame(index=df.index)
+
+        # MACD anomalies
+        anomalies["MACD_Buy"] = (df["MACD_12_26_9"] > df["MACDs_12_26_9"]) & (
+            df["MACD_12_26_9"].shift(1) < df["MACDs_12_26_9"].shift(1)
+        )
+        anomalies["MACD_Sell"] = (df["MACD_12_26_9"] < df["MACDs_12_26_9"]) & (
+            df["MACD_12_26_9"].shift(1) > df["MACDs_12_26_9"].shift(1)
         )
 
+        # RSI anomalies
+        anomalies["RSI_Buy"] = (df["RSI_14"] > 30) & (df["RSI_14"].shift(1) < 30)
+        anomalies["RSI_Sell"] = (df["RSI_14"] < 70) & (df["RSI_14"].shift(1) > 70)
+
+        # Bollinger Bands anomalies
+        anomalies["BB_Buy"] = df["Close"] < df["BBL_5_2.0"]
+        anomalies["BB_Sell"] = df["Close"] > df["BBU_5_2.0"]
+
+        # Combine buy and sell signals
+        anomalies["Buy"] = (
+            anomalies["MACD_Buy"] | anomalies["RSI_Buy"] | anomalies["BB_Buy"]
+        )
+        anomalies["Sell"] = (
+            anomalies["MACD_Sell"] | anomalies["RSI_Sell"] | anomalies["BB_Sell"]
+        )
+
+    except Exception as e:
+        logging.error(f"Error detecting anomalies: {e}")
+        return pd.DataFrame()
+
+    anomalies = detect_anomalies(df)
+
+    print("Buy/Sell signals detected:")
+    print(anomalies[anomalies["Buy"] | anomalies["Sell"]])
+
+    return
+    if len(data) < bar_number * timeframe:
+        return print(
+            f"🤖 Not enough data to calculate 📈 {strat} 📈 on {ticker} there are {len(data)} rows needs {bar_number}"
+        )
+
+    return
+
     if strat == "macd":
-        print(f"🤓 Calculating 📈 {strat} 📈 for {symbol}")
+        print(f"🤓 Calculating 📈 {strat} 📈 for {ticker}")
 
         # dataframes[symbol] = (
         #    dataframes[symbol]["close"].resample(f"{timeframe}min").mean()
         # )
-        dataframes[symbol] = dataframes[symbol].reset_index(drop=True)
 
-        macd = dataframes[symbol].ta.macd(
+        macd = data.ta.macd(
             close="close", fast=12, slow=26, signal=9
         )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
 
@@ -279,124 +222,154 @@ async def calc_strat(strat, symbol):
             macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
         ):
-            print(f"MACD Bullish🔺🐂🔺 crossover for {symbol}")
-            send_order("buy", symbol, dataframes[symbol])
+            print(f"MACD Bullish🔺🐂🔺 crossover for {ticker}")
+            send_order("buy", ticker, data)
         elif (
             macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
             and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
         ):
-            print(f"MACD Bearish🔻🐻🔻 crossover for {symbol}")
-            send_order("sell", symbol, dataframes[symbol])
+            print(f"MACD Bearish🔻🐻🔻 crossover for {ticker}")
+            send_order("sell", ticker, data)
     # @TODO: Add more strategies here
 
 
-# Subscribe: {"action": "subscribe", "trades": ["AAPL"], "quotes": ["AMD", "CLDR"], "bars": ["*"]}
-# Unsubscribe: {"action":"unsubscribe","trades":["VOO"],"quotes":["IBM"]}
-# @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data
-async def socket(subs):
-    """
-    Connects to the WebSocket and subscribes to the provided symbols
-    Attempts to reconnect if the connection is closed
-    Subscribes to the bars data for the provided symbols
-    """
-    global websocket_connected, auth_message
-
-    async with websockets.connect(stream) as websocket:
-        if not websocket_connected:
-            await websocket.send(auth_message)
-
-            response = await websocket.recv()
-            print(f"Authentication response: {response}")
-        else:
-            print("Already connected to the WebSocket.")
-            response = [{"T": "success", "msg": "authenticated"}]
-
-        try:
-            response_data = json.loads(response)
-        except json.JSONDecodeError:
-            print("Invalid JSON received in the authentication response.")
-            return
-
-        if isinstance(response_data, list) and response_data[0].get("T") == "success":
-            unsub_message = json.dumps(
-                {
-                    "action": "unsubscribe",
-                    "bars": ["*"],
-                }
-            )
-            sub_message = json.dumps(
-                {
-                    "action": "subscribe",
-                    "bars": subs,
-                }
-            )
-
-            print("Authentication successful. Connected to the WebSocket.")
-            websocket_connected = True
-            # To make things easy we'll just unsub and re-sub with fresh ones.
-            # print the number of unsubscribed symbols
-            print(f"👎 Unsubscribing from {len(subs)} symbols. 👎")
-            await websocket.send(unsub_message)
-            # print the number of subscribed symbols
-            print(f"👍 Subscribing to {len(subs)} symbols. 👍")
-            await websocket.send(sub_message)
-
-            while True:
-                try:
-                    data = await websocket.recv()
-                    await process_bar_data(data, "macd")
-                except websockets.ConnectionClosed:
-                    print(f"😭 WebSocket connection closed. Reconnecting...🔌")
-                    websocket_connected = False
-                    break
-        else:
-            print("Authentication failed.")
-            websocket_connected = False
-
-
-logging.basicConfig(level=logging.INFO)
-
-
-async def parse_message(message):
-    print(f"Message: {message}")
-    return
+def parse_datetime(dt_str):
     try:
-        data = json.loads(message)
-        logging.info(f"Parsed message: {data}")
-
-        # Process the parsed data here
-        # For example, extract trade details
-        if (
-            "T" in data and data["T"] == "t"
-        ):  # Assuming 'T' indicates the type and 't' is for trades
-            symbol = data["S"]  # Symbol
-            trade_price = data["p"]  # Trade price
-            trade_volume = data["v"]  # Trade volume
-            logging.info(
-                f"Trade - Symbol: {symbol}, Price: {trade_price}, Volume: {trade_volume}"
-            )
-
-        # Add more parsing logic based on the structure of the messages
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to decode JSON message: {e}")
-    except KeyError as e:
-        logging.error(f"Key error: {e}")
-
-    asyncio.run(tail_purrstream())
+        return datetime.datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+    except ValueError as e:
+        logging.error(f"Error parsing datetime: {e}")
+        return None
 
 
-# async def main():
-#    """
-#    Main function to start the scheduler and run the event loop
-#    """
-#    await start_scheduler()
-#    while True:
-#        # await fetch_earnings_calendar()
-#        await asyncio.sleep(1)
-#
-#
-# if __name__ == "__main__":
-#    """
-#    Entry point for the application
-#    """
-#    asyncio.run(main())
+async def store_in_marketstore(data):
+    """
+    Store the data in Marketstore.
+    """
+    try:
+        required_fields = ["S", "t", "o", "h", "l", "c", "v"]
+        if not all(field in data for field in required_fields):
+            raise ValueError(f"Missing one of the required fields: {required_fields}")
+
+        epoch_time = parse_datetime(data["t"])
+
+        df = np.array(
+            [
+                (
+                    epoch_time,
+                    data.get("o", 0.0),
+                    data.get("h", 0.0),
+                    data.get("l", 0.0),
+                    data.get("c", 0.0),
+                    data.get("v", 0.0),
+                )
+            ],
+            dtype=[
+                ("Epoch", "i8"),  # int64
+                ("Open", "f8"),  # float64
+                ("High", "f8"),  # float64
+                ("Low", "f8"),  # float64
+                ("Close", "f8"),  # float64
+                ("Volume", "f8"),  # float64
+            ],
+        )
+
+        # Determine the symbol and timeframe
+        symbol = data["S"]
+
+        print(f"Storing marketstore data for symbol {symbol} with data: {df}")
+
+        # Write to Marketstore
+        marketstore_client.write(df, f"{symbol}/{timeframe}/{attribute_group}")
+        print(f"Successfully stored data for {symbol}")
+    except Exception as e:
+        print(f"Error storing data: {e}")
+
+
+async def read_data_from_marketstore(data):
+    symbol = data["S"]
+
+    # Define the query parameters
+    params = pymkts.Params(
+        symbols=symbol, timeframe=timeframe, attrgroup=attribute_group
+    )
+
+    # Perform the query
+    try:
+        logging.info(f"Querying data for {symbol}/{timeframe}/{attribute_group}")
+        response = marketstore_client.query(params).first()
+        if response is None:
+            logging.error("Marketstore query returned no results.")
+            return None
+
+        df = response.df()
+        if df is None or df.empty:
+            logging.error("DataFrame is empty or None.")
+            return None
+
+        return df
+    except Exception as e:
+        logging.error(f"Error querying Marketstore: {e}")
+        return None
+
+
+async def process_message(redis, message):
+    """
+    Process the message if it meets the filtering criteria and log to Redis.
+    """
+    data = json.loads(message)
+
+    # Filter based on the ticker symbol
+    filtered_data = [
+        item for item in data if item.get("S") in earnings and item.get("T") == "b"
+    ]
+
+    for item in filtered_data:
+        ticker = item.get("S")
+        if ticker:
+            print(f"Processing message for {ticker}: {item}")
+            # Log message to Redis list
+            await redis.lpush(f"logs:{ticker}", json.dumps(item))
+            await store_in_marketstore(item)
+            market_data = await read_data_from_marketstore(item)
+            await calc_strat(ticker, market_data, "macd")
+
+        else:
+            print(f"Skipping message: {item}")
+
+
+async def redis_listener():
+    redis = aioredis.from_url(
+        f"redis://{redis_host}:{redis_port}",
+        encoding="utf-8",
+        decode_responses=True,
+    )
+    pubsub = redis.pubsub()
+    await pubsub.subscribe("stocks_channel")
+
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            await process_message(redis, message["data"])
+
+
+async def scheduler_task(scheduler):
+    """
+    Starts the scheduler to run tasks at specified intervals.
+    """
+    scheduler.start()
+    # Keep the scheduler running indefinitely
+    while True:
+        await asyncio.sleep(1)
+
+
+async def main():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
+
+    await asyncio.gather(redis_listener(), scheduler_task(scheduler))
+
+
+if __name__ == "__main__":
+    """
+    Entry point for the application
+    """
+    asyncio.run(main())

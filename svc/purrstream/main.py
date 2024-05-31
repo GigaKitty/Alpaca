@@ -1,199 +1,219 @@
+from aiohttp import web
+import aiohttp
 import asyncio
 import json
+import logging
 import os
-import websockets
+import redis
 
-# Global variables to track WebSocket connection status
-news_websocket_connected = False
-stocks_websocket_connected = False
-crypto_websocket_connected = False
-connected = set()  # a set of websockets for all connected clients
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+connected_clients = set()
+
+# Connect to Redis
+redis_host = os.getenv("REDIS_HOST", "localhost")
+redis_port = int(os.getenv("REDIS_PORT", 6379))
+redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=0)
+
+
+async def handle_connection(request):
+    websocket = web.WebSocketResponse()
+    await websocket.prepare(request)
+
+    connected_clients.add(websocket)
+    logging.info("New client connected")
+    try:
+        async for msg in websocket:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                logging.info(f"Received message from client: {msg.data}")
+                # Broadcast message to all connected clients
+                await broadcast(msg.data, "general")
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                logging.error(f"WebSocket error: {msg.data}")
+                break
+    finally:
+        connected_clients.remove(websocket)
+        logging.info("Client disconnected")
+
+    return websocket
+
+
+async def broadcast(message, channel):
+    if connected_clients:  # Check if there are any connected clients
+        await asyncio.wait([client.send_str(message) for client in connected_clients])
+    # Publish message to Redis
+    redis_client.publish(channel, message)
 
 
 async def news_socket():
-    global news_websocket_connected
+    """
+    @SEE: https://docs.alpaca.markets/docs/streaming-real-time-news
+    """
     wss_news_url = "wss://stream.data.alpaca.markets/v1beta1/news"
-    async with websockets.connect(wss_news_url) as websocket:
-        api_key = os.getenv("APCA_API_KEY_ID")
-        api_sec = os.getenv("APCA_API_SECRET_KEY")
-        auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
-        await websocket.send(auth_message)
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_news_url) as websocket:
+            await websocket.send_str(auth_message)
 
-        response = await websocket.recv()
-        print(f"News authentication response: {response}")
+            response = await websocket.receive_str()
+            logging.info(f"News authentication response: {response}")
 
-        try:
-            response_data = json.loads(response)
-        except json.JSONDecodeError:
-            print("Invalid JSON received in the authentication response.")
-            return
+            try:
+                response_data = json.loads(response)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
 
-        if isinstance(response_data, list) and response_data[0].get("T") == "success":
-            subscription_message = json.dumps({"action": "subscribe", "news": ["*"]})
-            print("News authentication successful. Connected to the WebSocket.")
-            news_websocket_connected = True
-            await websocket.send(subscription_message)
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                subscription_message = json.dumps(
+                    {"action": "subscribe", "news": ["*"]}
+                )
+                logging.info(
+                    "News authentication successful. Connected to the WebSocket."
+                )
+                await websocket.send_str(subscription_message)
 
-            while True:
-                try:
-                    data = await websocket.recv()
-                    print(f"News data: {data}")
-                    await broadcast(data)
-                    print("--------------------------------------------")
-                except websockets.ConnectionClosed:
-                    print("News WebSocket connection closed")
-                    news_websocket_connected = False
-                    break
-        else:
-            print("News authentication failed.")
-            news_websocket_connected = False
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        logging.info(f"News data: {data}")
+                        await broadcast(data, "news_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("News WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error(f"WebSocket error: {msg.data}")
+                        break
+            else:
+                logging.error("News authentication failed.")
 
 
 async def stocks_socket():
-    global stocks_websocket_connected
+    """
+    @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data#schema-2
+    """
     wss_stocks_url = "wss://stream.data.alpaca.markets/v2/sip"
-    async with websockets.connect(wss_stocks_url) as websocket:
-        api_key = os.getenv("APCA_API_KEY_ID")
-        api_sec = os.getenv("APCA_API_SECRET_KEY")
-        auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
-        await websocket.send(auth_message)
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_stocks_url) as websocket:
+            await websocket.send_str(auth_message)
 
-        response = await websocket.recv()
-        print(f"Stocks authentication response: {response}")
+            response = await websocket.receive_str()
+            logging.info(f"Stocks authentication response: {response}")
 
-        try:
-            response_data = json.loads(response)
-        except json.JSONDecodeError:
-            print("Invalid JSON received in the authentication response.")
-            return
+            try:
+                response_data = json.loads(response)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
 
-        if isinstance(response_data, list) and response_data[0].get("T") == "success":
-            subscription_message = json.dumps(
-                {
-                    "action": "subscribe",
-                    "trades": ["*"],
-                    "quotes": ["*"],
-                    "bars": ["*"],
-                    "statuses": ["*"],
-                }
-            )
-            print("Stocks authentication successful. Connected to the WebSocket.")
-            stocks_websocket_connected = True
-            await websocket.send(subscription_message)
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                subscription_message = json.dumps(
+                    {
+                        "action": "subscribe",
+                        "trades": ["*"],
+                        "quotes": ["*"],
+                        "bars": ["*"],
+                        "statuses": ["*"],
+                    }
+                )
+                logging.info(
+                    "Stocks authentication successful. Connected to the WebSocket."
+                )
+                await websocket.send_str(subscription_message)
 
-            while True:
-                try:
-                    data = await websocket.recv()
-                    print(f"Stocks data: {data}")
-                    await broadcast(data)
-                    print("--------------------------------------------")
-                except websockets.ConnectionClosed:
-                    print("Stocks WebSocket connection closed")
-                    stocks_websocket_connected = False
-                    break
-        else:
-            print("Stocks authentication failed.")
-            stocks_websocket_connected = False
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        logging.info(f"Stocks data: {data}")
+                        await broadcast(data, "stocks_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("Stocks WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error(f"WebSocket error: {msg.data}")
+                        break
+            else:
+                logging.error("Stocks authentication failed.")
 
 
 async def crypto_socket():
-    global crypto_websocket_connected
+    """
+    @SEE: https://docs.alpaca.markets/docs/real-time-crypto-pricing-data
+    """
     wss_crypto_url = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
-    async with websockets.connect(wss_crypto_url) as websocket:
-        api_key = os.getenv("APCA_API_KEY_ID")
-        api_sec = os.getenv("APCA_API_SECRET_KEY")
-        auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
-        await websocket.send(auth_message)
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_crypto_url) as websocket:
+            await websocket.send_str(auth_message)
 
-        response = await websocket.recv()
-        print(f"Crypto authentication response: {response}")
+            response = await websocket.receive_str()
+            logging.info(f"Crypto authentication response: {response}")
 
-        try:
-            response_data = json.loads(response)
-        except json.JSONDecodeError:
-            print("Invalid JSON received in the authentication response.")
-            return
+            try:
+                response_data = json.loads(response)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
 
-        if isinstance(response_data, list) and response_data[0].get("T") == "success":
-            subscription_message = json.dumps(
-                {
-                    "action": "subscribe",
-                    "trades": ["*"],
-                    "quotes": ["*"],
-                    "bars": ["*"],
-                    "updatedBars": ["*"],
-                    "dailyBars": ["*"],
-                    "orderbooks": ["*"],
-                }
-            )
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                subscription_message = json.dumps(
+                    {
+                        "action": "subscribe",
+                        "trades": ["*"],
+                        "quotes": ["*"],
+                        "bars": ["*"],
+                        "updatedBars": ["*"],
+                        "dailyBars": ["*"],
+                        "orderbooks": ["*"],
+                    }
+                )
+                logging.info(
+                    "Crypto authentication successful. Connected to the WebSocket."
+                )
+                await websocket.send_str(subscription_message)
 
-            print("Crypto authentication successful. Connected to the WebSocket.")
-            crypto_websocket_connected = True
-            await websocket.send(subscription_message)
-
-            while True:
-                try:
-                    data = await websocket.recv()
-                    print(f"Crypto data: {data}")
-                    await broadcast(data)
-                    print("--------------------------------------------")
-                except websockets.ConnectionClosed:
-                    print("Crypto WebSocket connection closed")
-                    crypto_websocket_connected = False
-                    break
-        else:
-            print("Crypto authentication failed.")
-            crypto_websocket_connected = False
-
-
-async def server(websocket, path):
-    # Register websocket connection
-    connected.add(websocket)
-    try:
-        while True:
-            message = (
-                await websocket.recv()
-            )  # server also needs to receive to maintain connection
-            print("Received by server from a client:", message)
-    except websockets.exceptions.ConnectionClosed:
-        pass
-    finally:
-        # Unregister
-        connected.remove(websocket)
-
-        connected_clients = set()
-
-
-async def handle_connection(websocket, path):
-    logging.info("New client connected")
-    connected_clients.add(websocket)
-    try:
-        async for message in websocket:
-            logging.info(f"Received message from client: {message}")
-            # Broadcast message to all connected clients
-            await broadcast(message)
-    except websockets.ConnectionClosed:
-        logging.info("Client disconnected")
-    finally:
-        connected_clients.remove(websocket)
-
-
-async def broadcast(message):
-    if connected:  # Check if there are any connected clients
-        await asyncio.wait([client.send(message) for client in connected])
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        logging.info(f"Crypto data: {data}")
+                        await broadcast(data, "crypto_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("Crypto WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error("WebSocket error: {msg.data}")
+                        break
+            else:
+                logging.error("Crypto authentication failed.")
 
 
 async def main():
-    server_task = websockets.serve(server, "0.0.0.0", 8765)
+    crypto_task = crypto_socket()
     news_task = news_socket()
     stocks_task = stocks_socket()
-    crypto_task = crypto_socket()
 
-    await asyncio.gather(server_task, news_task, stocks_task, crypto_task)
+    await asyncio.gather(news_task, stocks_task, crypto_task)
 
 
-# Run the asyncio event loop
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
