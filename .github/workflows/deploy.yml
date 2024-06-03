@@ -51,7 +51,7 @@ jobs:
         id: time
         run: |
           current_time=$(date -u +"%H")
-          echo "::set-output name=hour::$current_time"
+          echo "hour=${current_time}" >> $GITHUB_OUTPUT
 
       - name: Run morning task
         if: steps.time.outputs.hour == '11'
