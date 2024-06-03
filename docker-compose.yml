@@ -1,14 +1,15 @@
 services:
   earnyearn:
     build:
-      context: ./svc/earnyearn
-      dockerfile: ./Dockerfile
+      args:
+        SVC_DIR: ./svc/earnyearn
     restart: always
     volumes:
       - ./svc/earnyearn/:/app/
     depends_on:
-      - redis-stack
       - marketstore
+      - purrstream
+      - redis-stack
     networks:
       - redis_network
       - marketstore_network
@@ -25,8 +26,8 @@ services:
 
   pacapredictor:
     build:
-      context: ./svc/pacapredictor
-      dockerfile: ./Dockerfile
+      args:
+        SVC_DIR: ./svc/pacapredictor
     restart: always
     runtime: nvidia
     deploy:
@@ -47,8 +48,8 @@ services:
 
   purrstream:
     build:
-      context: ./svc/purrstream
-      dockerfile: ./Dockerfile
+      args:
+        SVC_DIR: ./svc/purrstream
     restart: always
     depends_on:
       - redis-stack
@@ -67,11 +68,12 @@ services:
 
   scalpaca:
     build:
-      context: ./svc/scalpaca
       dockerfile: ./Dockerfile
+      args:
+        SVC_DIR: ./svc/scalpaca
     restart: always
     volumes:
-      - ./svc/scalpaca/:/app/
+      - ./svc/scalpaca:/app
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
@@ -79,8 +81,8 @@ services:
 
   sentimentsheperd:
     build:
-      context: ./svc/sentimentsheperd
-      dockerfile: ./Dockerfile
+      args:
+        SVC_DIR: ./svc/sentimentsheperd
     restart: always
     depends_on:
       - redis-stack

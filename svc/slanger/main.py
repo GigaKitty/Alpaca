@@ -269,7 +269,6 @@ def preprocess():
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
     g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))
-    g.data["wiggle"] = g.data.get("wiggle", calc.wiggle(g.data))
 
     # Order
     g.data["order_id"] = order.gen_id(g.data, 10)

@@ -106,10 +106,6 @@ def limit_price(data):
     return round(float(price * 0.98))
 
 
-def wiggle(data):
-    return False
-
-
 def risk(data):
 
     if data.get("risk"):

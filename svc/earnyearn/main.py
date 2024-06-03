@@ -86,8 +86,8 @@ async def fetch_earnings_calendar():
         for earning in earnings_calendar["earningsCalendar"]:
             if (
                 earning["year"] == datetime.datetime.now().year  # This year
-                and earning["epsEstimate"] is not None
-                and earning["epsEstimate"] >= 1
+                # and earning["epsEstimate"] is not None
+                # and earning["epsEstimate"] >= 1
                 and earning["revenueEstimate"] is not None
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million
@@ -364,7 +364,6 @@ async def scheduler_task(scheduler):
 async def main():
     scheduler = AsyncIOScheduler()
     scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
-
     await asyncio.gather(redis_listener(), scheduler_task(scheduler))
 
 
