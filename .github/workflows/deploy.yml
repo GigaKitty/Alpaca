@@ -5,6 +5,9 @@ on:
     branches:
       - dev
       - main
+  schedule:
+    - cron: '0 11 * * 1-5' # 6 AM EST
+    - cron: '0 23 * * 1-5' # 6 PM EST
 
 permissions:
   id-token: write
@@ -43,3 +46,21 @@ jobs:
               copilot svc deploy --name $service --env main
             fi
           done
+
+      - name: Determine schedule time
+        id: time
+        run: |
+          current_time=$(date -u +"%H")
+          echo "::set-output name=hour::$current_time"
+
+      - name: Run morning task
+        if: steps.time.outputs.hour == '11'
+        run: |
+          echo "Running morning scheduled task"
+          # Add your morning task commands here
+
+      - name: Run evening task
+        if: steps.time.outputs.hour == '23'
+        run: |
+          echo "Running evening scheduled task"
+          # Add your evening task commands here
