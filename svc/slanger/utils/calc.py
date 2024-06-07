@@ -3,15 +3,19 @@ Calc class & functions are essentially trading rules that are used to calculate 
 Use the data object to get the values from the webhook and return the calculated value
 """
 
-# def profit(data):
-# pos = data.get("pos")
-# print(pos)
-# if pos is not False:
-#     market_value = float(pos.)
-#     # if unrealized_pl is greater than 1% of market_value
-#     if float(pos.unrealized_pl) >= float(pos.market_value) * data["risk"]:
 
-#         logger.info("Position closed")
+def profit(data):
+    return 1
+    pos = data.get("pos")
+    print("-----------------------------")
+    print(pos)
+    print("-----------------------------")
+    if pos is not False:
+        # if unrealized_pl is greater than 1% of market_value
+        if float(pos.unrealized_pl) >= float(pos.market_value) * data["risk"]:
+            logger.info("Position closed")
+    else:
+        return False
 
 
 # Function to get the current price of a ticker

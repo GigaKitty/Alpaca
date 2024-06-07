@@ -1,8 +1,21 @@
 services:
+  beancleaner:
+    build:
+      args:
+        SVC_DIR: ./svc/beancleaner
+    container_name: beancleaner-${ENVIRONMENT:-dev}
+    restart: always
+    volumes:
+      - ./svc/beancleaner/:/app/
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
   earnyearn:
     build:
       args:
         SVC_DIR: ./svc/earnyearn
+    container_name: earnyearn-${ENVIRONMENT:-dev}
     restart: always
     volumes:
       - ./svc/earnyearn/:/app/
@@ -16,7 +29,7 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
       - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - MARKETSTORE_HOST=${MARKETSTORE_HOST}
@@ -28,6 +41,7 @@ services:
     build:
       args:
         SVC_DIR: ./svc/pacapredictor
+    container_name: parapredictor-${ENVIRONMENT:-dev}
     restart: always
     runtime: nvidia
     deploy:
@@ -44,17 +58,18 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
 
   purrstream:
     build:
       args:
         SVC_DIR: ./svc/purrstream
+    container_name: purrstream-${ENVIRONMENT:-dev}
     restart: always
     depends_on:
       - redis-stack
     ports:
-      - 8000:8000
+      - ${PURRSTREAM_PORT:-8000}:8000
     networks:
       - redis_network
     volumes:
@@ -62,7 +77,7 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
 
@@ -71,18 +86,20 @@ services:
       dockerfile: ./Dockerfile
       args:
         SVC_DIR: ./svc/scalpaca
+    container_name: scalpaca-${ENVIRONMENT:-dev}
     restart: always
     volumes:
       - ./svc/scalpaca:/app
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
 
   sentimentsheperd:
     build:
       args:
         SVC_DIR: ./svc/sentimentsheperd
+    container_name: sentimentsheperd-${ENVIRONMENT:-dev}
     restart: always
     depends_on:
       - redis-stack
@@ -93,17 +110,33 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - APCA_ENVIRONMENT=${APCA_ENVIRONMENT}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
 
+  slanger:
+    build:
+      args:
+        SVC_DIR: ./svc/slanger
+    restart: always
+    container_name: slanger-${ENVIRONMENT:-dev}
+    ports:
+      - ${SLANGER_PORT:-5000}:5000
+    volumes:
+      - ./svc/slanger/:/app/
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - ENVIRONMENT:-dev=${ENVIRONMENT}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+
   marketstore:
     image: alpacamarkets/marketstore:latest
-    container_name: marketstore
+    container_name: marketstore-${ENVIRONMENT:-dev}
     restart: always
     ports:
-      - "5993:5993"
+      - ${MARKETSTORE_PORT:-5993}:5993
     volumes:
       - ./_data/marketstore-data:/data
       - ./_config/mkts.yml:/etc/mkts.yml
@@ -112,11 +145,11 @@ services:
 
   redis-stack:
     image: redis/redis-stack:latest
-    container_name: redis-stack
+    container_name: redis-stack-${ENVIRONMENT:-dev}
     restart: always
     ports:
-      - "6379:6379"
-      - "8001:8001"
+      - ${REDIS_PORT:-6379}:6379
+      - ${REDIS_PORT_TWO:-8001}:8001
     volumes:
       - redis_data:/data
     networks:
@@ -124,10 +157,10 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: grafana-${ENVIRONMENT:-dev}
     restart: always
     ports:
-      - "3000:3000"
+      - ${GRAFANA_PORT:-3000}:3000
     networks:
       - redis_network
       - monitoring
@@ -135,25 +168,41 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
     depends_on:
       - redis-stack
-      - prometheus
+      #- prometheus
     volumes:
       - grafana_data:/var/lib/grafana
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: monitoring_prometheus
-    restart: unless-stopped
-    volumes:
-      - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-    ports:
-      - 9090:9090
-    networks:
-      - monitoring
+  #  prometheus:
+  #    image: prom/prometheus:latest
+  #    container_name: prometheus-${ENVIRONMENT:-dev}
+  #    restart: unless-stopped
+  #    volumes:
+  #      - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
+  #    command:
+  #      - "--config.file=/etc/prometheus/prometheus.yml"
+  #    ports:
+  #      - ${PROMETHEUS_PORT:-9090}:9090
+  #    networks:
+  #      - monitoring
+
+  #  cloudflared:
+  #    image: cloudflare/cloudflared:latest
+  #    container_name: cloudflared
+  #    restart: unless-stopped
+  #    # command: >
+  #    #   "tunnel --no-autoupdate run --config /etc/cloudflared/config.yml"
+  #    environment:
+  #      - CLOUDFLARED_TUNNEL_ID=${CLOUDFLARED_TUNNEL_ID}
+  #      - CLOUDFLARED_HOSTNAME=${CLOUDFLARED_HOSTNAME}
+  #      - CLOUDFLARED_SERVICE=${CLOUDFLARED_SERVICE}
+  #    # volumes:
+  #    #   - ~/.cloudflared:/etc/.cloudflared
+  #    #   - ./_config/cloudflared.yml:/jkk/config.yml
 
 networks:
   monitoring:
+  cloudflared:
+    driver: bridge
   redis_network:
     driver: bridge
   marketstore_network:

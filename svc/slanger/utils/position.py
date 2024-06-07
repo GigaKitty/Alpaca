@@ -75,6 +75,7 @@ def sp(data, api):
     if data.get("pos") is not False:
         # If position need to analyze it and make sure it's on the same side
         print(f"SMASH OR PASS POS is NOT false let's do analyze")
+        print(data.get("pos"))
         return anal(data, api)
     elif data.get("pos") is False and side == action:
         # No position side == action which means same intention from signal to strategy

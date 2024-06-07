@@ -1,11 +1,10 @@
-#TA-Lib==0.4.28
 aiohttp==3.9.5
+aioredis==2.0.1
 alpaca-py==0.17.0
 apscheduler==3.10.4
 finnhub-python==2.4.19
 pandas-ta==0.3.14b
 pandas==2.2.1
-redis==5.0.4
-aioredis==2.0.1
-websockets==11.0.3
 pymarketstore==0.22
+redis==5.0.4
+websockets==11.0.3

@@ -8,23 +8,24 @@ from alpaca.trading.requests import (
     TrailingStopOrderRequest,
 )
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
-from utils import position, sec, order, account, calc, ngrok
+from utils import position, sec, order, account, calc
 import json
 import os
-import threading
-import asyncio
-import random
-import requests
-import string
+
+# import threading
+# import asyncio
+# import random
+# import requests
+# import string
 import time
 
 #######################################################
 #### ENVIRONMENT SETUP ################################
 #######################################################
 """
- Set the environment variable ENVIRONMENT_NAME to main or dev
+ Set the environment variable ENVIRONMENT to main or dev
 """
-paper = True if os.getenv("ENVIRONMENT_NAME", "dev") != "main" else False
+paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
 
 """
 Initialize the Alpaca API
@@ -42,6 +43,38 @@ orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 #######################################################
+
+
+@orders.route("/limit", methods=["POST"])
+def limit():
+    """
+    Places a limit order based on TradingView WebHook
+    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
+    """
+    if g.data.get("sp") is True:
+        limit_price = round(calc.limit_price(g.data), 2)
+        try:
+            limit_order_data = LimitOrderRequest(
+                symbol=g.data.get("ticker"),
+                qty=g.data.get("qty"),
+                side=g.data.get("action"),
+                time_in_force=TimeInForce.DAY,
+                limit_price=limit_price,
+                after_hours=g.data.get("after_hours"),
+                client_order_id=g.data.get("order_id"),
+            )
+            app.logger.debug("Limit Order Data: %s", limit_order_data)
+            limit_order = api.submit_order(order_data=limit_order_data)
+            app.logger.debug("Limit Order: %s", limit_order)
+            response_data = {"message": "Webhook received and processed successfully"}
+            return jsonify(response_data), 200
+        except Exception as e:
+            app.logger.error("Error processing request: %s", str(e))
+            error_message = {"error": "Failed to process webhook request"}
+            return jsonify(error_message), 400
+    else:
+        skip_message = {"Skip": "Skip webhook"}
+        return jsonify(skip_message), 204
 
 
 @orders.route("/bracket", methods=["POST"])
@@ -87,9 +120,7 @@ def bracket():
 # @orders.route("/trailing", methods=["POST"])
 def trailing():
     """
-    Places a trailing stop order based on TradingView WebHook
-    for now it only works with the trailing stop percentage
-    that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.
+    Places a trailing stop order based on TradingView WebHook for now it only works with the trailing stop percentage that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
     max_attempts = 10
@@ -264,7 +295,7 @@ def preprocess():
     g.data["action"] = g.data.get("action", "buy")
     g.data["risk"] = g.data.get("risk", calc.risk(g.data))
     g.data["notional"] = g.data.get("notional", calc.notional(g.data))
-    # g.data["profit"] = g.data.get("profit", calc.profit(g.data))
+    g.data["profit"] = g.data.get("profit", calc.profit(g.data))
     g.data["qty"] = g.data.get("qty", calc.qty(g.data))
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))

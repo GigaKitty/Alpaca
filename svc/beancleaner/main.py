@@ -1,71 +1,89 @@
-# Beancleaner is a service that cleans up old beans left from Alpacka.
-# This is called the bean cleaner because Alpaca poops are called beans.
-# We don't like beans, so we clean them up. We don't like losses, so we clean them up.
-# It's purppose is to cleanup old trades that aren't in ideal positions.
-#
-#
-# get current positions
-# open websocket to each symbol
-# monitor the price of each symbol
-# when it hits a positive mark, close the position
-# if it's in a really bad spot we need to  weight considerations sucha as pps, future price, etc. to see if we can wiggle out of this shitty position
-#
-#
-#
-# Take the smallest loss possible and clean it up.
-# Part of the point of this service is to free up capital for better trades.
-# It's also to be stubborn and not take a loss, but to take the smallest loss possible.
-# which can end up being a really terrible idea.
-# Use only in the most dire of situations.
-# Or if we think it will work to cleanup a lot of smaller losses.
-#
-#
-# Get the lowest fill price
-# calculate how many shares we have to buy from the current price to break even
-# if those shares and price etc. work out to less than a certain risk facter then we buy and then we exit
-# # Given values
-original_purchase_price = 50  # Original purchase price per share
-current_price = 40  # Current price per share
-current_shares = 100  # Number of shares currently owned
-target_average_price = original_purchase_price  # Target average price to break even
+from alpaca.trading.client import TradingClient
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from pytz import timezone
+import asyncio
+import logging
+import os
+import redis.asyncio as aioredis
 
-# Calculate total investment
-total_investment = original_purchase_price * current_shares
+#######################################################
+#### ENVIRONMENT SETUP ################################
+#######################################################
+"""
+ Set the environment variable ENVIRONMENT to main or dev
+"""
+paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
 
-# Calculate additional shares needed
-additional_shares = (total_investment - (target_average_price * current_shares)) / (
-    target_average_price - current_price
+"""
+Initialize the Alpaca API
+If it's dev i.e. paper trading then it uses the paper trading API
+"""
+api = TradingClient(
+    os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY"), paper=paper
 )
 
-additional_shares
+# Set the timezone to EST
+est = timezone("US/Eastern")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+#######################################################
+#######################################################
+#######################################################
 
 
-# Correcting the logic to calculate additional shares needed to adjust the average cost
+def clean_the_bean():
+    """
+    The overall idea is to free up capital and don't carry trades through after hours or weekends.
+    Tickers can be fitlered based on a list of tickers that are known to have earnings or other events that we'd like to hodl.
+    @TODO: add a check to see if it's on a global list for instance earnings and if it is then skip it. This data can be set/get from redis as it's not critical for persistance
+    """
+    print("Cleaning the bean")
+    # Get all open positions
+    positions = api.get_all_positions()
 
-# Let's assume we want to calculate how many shares need to be bought at $40
-# to lower the average cost without specifying a new target average price.
+    for position in positions:
+        symbol = position.symbol
+        unrealized_pl = float(position.unrealized_pl)
 
-# For simplicity, let's find out how buying additional shares at $40 affects the average cost.
+        # Check if the unrealized loss is less than $1
+        if unrealized_pl >= -1.0:
+            try:
+                # Close the position
+                api.close_position(symbol)
+                if unrealized_pl >= 0:
+                    print(
+                        f"Closed position in {symbol} with a profit of {unrealized_pl}"
+                    )
+                else:
+                    print(f"Closed position in {symbol} with a loss of {unrealized_pl}")
+            except Exception as e:
+                print(f"Error closing position in {symbol}: {e}")
 
-# We know:
-# - total_investment so far
-# - current_shares owned
-# - new_price to buy additional shares
 
-# We aim to find a formula that directly solves for additional shares needed to achieve a specific new average cost.
-# However, since we didn't specify a new average, let's calculate a general scenario
-# of how additional shares at the new price affect the average cost.
+async def scheduler_task(scheduler):
+    """
+    Starts the scheduler to run tasks at specified intervals.
+    """
+    scheduler.start()
+    # Keep the scheduler running indefinitely
+    logging.info("Scheduler started")
+    while True:
+        await asyncio.sleep(1)
 
-# Let's manually set an example of buying 50 additional shares and see the new average cost.
-additional_shares_example = 50  # Example additional shares to buy
 
-# New total investment after buying additional shares
-new_total_investment = total_investment + (additional_shares_example * current_price)
+async def main():
+    scheduler = AsyncIOScheduler(timezone=est)
+    logging.info("Starting the bean cleaner service")
+    trigger = CronTrigger(day_of_week="mon-fri", hour=15, minute=55, timezone=est)
+    logging.info(f"Bean cleaner scheduled to run at {trigger}")
+    scheduler.add_job(clean_the_bean, trigger)
+    await scheduler_task(scheduler)
 
-# New total shares after buying additional
-new_total_shares = current_shares + additional_shares_example
 
-# New average cost per share
-new_average_cost = new_total_investment / new_total_shares
-
-new_average_cost
+if __name__ == "__main__":
+    """
+    Entry point for the application
+    """
+    asyncio.run(main())

@@ -10,7 +10,6 @@ import pymarketstore as pymkts
 import redis.asyncio as aioredis
 import requests
 import datetime
-import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
@@ -70,7 +69,8 @@ async def fetch_earnings_calendar():
     # For example, the next 7 days from today
     start_date = datetime.datetime.now().date()
     end_date = (
-        datetime.datetime.now() + datetime.timedelta(days=os.getenv("FINNHUB_DAYS", 7))
+        datetime.datetime.now()
+        + datetime.timedelta(days=int(os.getenv("FINNHUB_DAYS", 7)))
     ).date()
 
     # Fetch the earnings calendar
@@ -86,8 +86,8 @@ async def fetch_earnings_calendar():
         for earning in earnings_calendar["earningsCalendar"]:
             if (
                 earning["year"] == datetime.datetime.now().year  # This year
-                # and earning["epsEstimate"] is not None
-                # and earning["epsEstimate"] >= 1
+                and earning["epsEstimate"] is not None
+                and earning["epsEstimate"] >= 0
                 and earning["revenueEstimate"] is not None
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million
@@ -107,16 +107,17 @@ def send_order(action, symbol, data):
     """
     data = {
         "action": action,
-        "side": "buy",
+        "close": data["Close"].iloc[-1],
         "comment": "macd-earnyearn",
-        "low": data["low"].iloc[-1],
-        "high": data["high"].iloc[-1],
-        "close": data["close"].iloc[-1],
-        "volume": data["volume"].iloc[-1],
+        "high": data["High"].iloc[-1],
         "interval": "1m",
+        "low": data["Low"].iloc[-1],
+        "open": data["Open"].iloc[-1],
+        "side": "buy",
         "signature": tv_sig,
         "ticker": symbol,
         "trailing": True,
+        "volume": data["Volume"].iloc[-1],
     }
 
     # Sending a POST request with JSON data
@@ -125,6 +126,7 @@ def send_order(action, symbol, data):
     if response.status_code == 200:
         try:
             print("Pass", response.json())
+            print(data)
         except requests.exceptions.JSONDecodeError:
             print("Response is not in JSON format.", response)
     else:
@@ -138,11 +140,20 @@ async def calc_strat(ticker, data, strat):
     df = pd.DataFrame(data)
 
     try:
-        df["Epoch"] = pd.to_datetime(df["Epoch"], errors="coerce")
-        if df["Epoch"].isnull().any():
-            logging.error("Error converting 'Epoch' to datetime. Some values are NaT.")
-        else:
+        # Check if 'Epoch' is already the index
+        if df.index.name != "Epoch":
+            # Convert 'Epoch' column to datetime and set as index
+            df["Epoch"] = pd.to_datetime(df["Epoch"], errors="coerce")
             df.set_index("Epoch", inplace=True)
+        else:
+            # Convert the index to datetime
+            df.index = pd.to_datetime(df.index, errors="coerce")
+
+        # Check for any null values in 'Epoch' index
+        if df.index.isnull().any():
+            logging.error("Error converting 'Epoch' to datetime. Some values are NaT.")
+            return
+        else:
             logging.info("Index set successfully.")
     except Exception as e:
         logging.error(f"Failed to set index: {e}")
@@ -153,13 +164,13 @@ async def calc_strat(ticker, data, strat):
         df = df.join(macd)
 
         # Calculate RSI
-        df["RSI"] = ta.rsi(df["Close"])
+        df["RSI_14"] = ta.rsi(df["Close"])
 
         # Calculate Bollinger Bands
         bb = ta.bbands(df["Close"])
         df = df.join(bb)
 
-        logging.info("Technical indicators calculated successfully.")
+        logging.info("Technical indicator macd, rsi, bb, calculated successfully.")
     except Exception as e:
         logging.error(f"Error calculating technical indicators: {e}")
 
@@ -194,43 +205,34 @@ async def calc_strat(ticker, data, strat):
         logging.error(f"Error detecting anomalies: {e}")
         return pd.DataFrame()
 
-    anomalies = detect_anomalies(df)
+    # Place orders based on buy/sell signals
+    # print(anomalies[anomalies["Buy"] | anomalies["Sell"]])
 
-    print("Buy/Sell signals detected:")
-    print(anomalies[anomalies["Buy"] | anomalies["Sell"]])
+    # Check the last 10 bars for buy/sell signals
+    recent_anomalies = anomalies.tail(25)
 
-    return
-    if len(data) < bar_number * timeframe:
-        return print(
-            f"🤖 Not enough data to calculate 📈 {strat} 📈 on {ticker} there are {len(data)} rows needs {bar_number}"
-        )
+    buy_condition = (
+        recent_anomalies["MACD_Buy"].any()
+        and recent_anomalies["RSI_Buy"].any()
+        and recent_anomalies["BB_Buy"].any()
+    )
+    sell_condition = (
+        recent_anomalies["MACD_Sell"].any()
+        and recent_anomalies["RSI_Sell"].any()
+        and recent_anomalies["BB_Sell"].any()
+    )
 
-    return
+    if buy_condition:
+        latest_buy_signal = recent_anomalies[recent_anomalies["Buy"]].iloc[-1]
+        print("Buy condition met")
+        print(latest_buy_signal)
+        send_order("buy", ticker, data)
 
-    if strat == "macd":
-        print(f"🤓 Calculating 📈 {strat} 📈 for {ticker}")
-
-        # dataframes[symbol] = (
-        #    dataframes[symbol]["close"].resample(f"{timeframe}min").mean()
-        # )
-
-        macd = data.ta.macd(
-            close="close", fast=12, slow=26, signal=9
-        )  # Apply MACD with default parameters (fast=12, slow=26, signal=9)
-
-        if (
-            macd["MACD_12_26_9"].iloc[-1] > macd["MACDh_12_26_9"].iloc[-1]
-            and macd["MACD_12_26_9"].iloc[-2] < macd["MACDh_12_26_9"].iloc[-2]
-        ):
-            print(f"MACD Bullish🔺🐂🔺 crossover for {ticker}")
-            send_order("buy", ticker, data)
-        elif (
-            macd["MACD_12_26_9"].iloc[-1] < macd["MACDh_12_26_9"].iloc[-1]
-            and macd["MACD_12_26_9"].iloc[-2] > macd["MACDh_12_26_9"].iloc[-2]
-        ):
-            print(f"MACD Bearish🔻🐻🔻 crossover for {ticker}")
-            send_order("sell", ticker, data)
-    # @TODO: Add more strategies here
+    if sell_condition:
+        latest_sell_signal = recent_anomalies[recent_anomalies["Sell"]].iloc[-1]
+        print("Sell condition met")
+        print(latest_sell_signal)
+        send_order("sell", ticker, data)
 
 
 def parse_datetime(dt_str):
