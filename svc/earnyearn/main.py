@@ -314,6 +314,8 @@ async def read_data_from_marketstore(data):
         return None
 
 
+# @TODO: for some reason redis doesn't work maybe it's failing but the fix is to restart everything
+# This seems to be down after hours
 async def process_message(redis, message):
     """
     Process the message if it meets the filtering criteria and log to Redis.

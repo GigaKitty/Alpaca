@@ -1,7 +1,3 @@
-# @SUB: This bot is honestly not great at it's job but it's an ok example of how to use the Alpaca API to trade crypto
-# It's sub-par because it's just not covering the costs of trading. The fees are too high and the spread is too low.
-# Trading Crypto on Alpaca is really not the best option for me. I'd rather trade stocks on Alpaca and crypto on Binance.
-# Look for something more performant with less overhead. This bot is not making any money. It's just a good example of how to use the Alpaca API to trade crypto.
 from datetime import datetime, timedelta, timezone
 import aiohttp
 import alpaca_trade_api as tradeapi
@@ -38,18 +34,12 @@ SYMBOLS = os.getenv(
     ["UNI/USD", "DOT/USD", "SHIB/USD", "LINK/USD", "XRP/USD", "LTC/USD", "AVAX/USD"],
 )  # Array of cryptocurrency symbols
 TIMEFRAME = os.getenv("TIMEFRAME", "1Min")
-LOOKBACK_MINUTES = os.getenv("LOOKBACK_MINUTES", 5)
-FEE_RATE = os.getenv("FEE_RATE", 0.0005)
-TARGET_SPREAD = os.getenv("TARGET_SPREAD", 0.002)
-NOTIONAL_VALUE = os.getenv("NOTIONAL_VALUE", 10)
+LOOKBACK_MINUTES = int(os.getenv("LOOKBACK_MINUTES", 5))
+FEE_RATE = float(os.getenv("FEE_RATE", 0.0005))
+TARGET_SPREAD = float(os.getenv("TARGET_SPREAD", 0.002))
+NOTIONAL_VALUE = float(os.getenv("NOTIONAL_VALUE", 10))
 
 logging.basicConfig(level=logging.INFO)
-###############################
-###############################
-###############################
-###############################
-###############################
-###############################
 
 
 async def get_bar_data(session, symbol, timeframe, lookback_minutes):
@@ -142,10 +132,21 @@ async def place_sell_order(session, symbol, selling_price):
 
     # Place a limit sell order
     sell_order = await place_order(
-        session, symbol, 0.01, "sell", selling_price_adjusted
+        session, symbol, NOTIONAL_VALUE, "sell", selling_price_adjusted
     )
 
     return sell_order
+
+
+async def wait_for_order_fill(session, order_id):
+    url = f"{BASE_URL}/v2/orders/{order_id}"
+    while True:
+        async with session.get(url, headers=HEADERS) as response:
+            order = await response.json()
+            if order["status"] == "filled":
+                logging.info(f"Order {order_id} filled.")
+                return True
+            await asyncio.sleep(1)
 
 
 async def scalping_strategy(session, symbol):
@@ -164,31 +165,35 @@ async def scalping_strategy(session, symbol):
                 f"{symbol} - Placing buy order as the spread is sufficient to cover fees."
             )
             buy_order = await place_buy_order(session, symbol, buying_price)
-            # Wait for the buy order to fill
-            await asyncio.sleep(60)  # Adjust as needed based on order fill time
 
-            # Recalculate selling price to ensure spread covers fees
-            bars = await get_bar_data(session, symbol, TIMEFRAME, LOOKBACK_MINUTES)
-            if not bars.empty:
-                _, selling_price = calculate_prices(bars)
-                spread = calculate_spread(buying_price, selling_price)
-                logging.info(
-                    f"Updated Selling Price: {selling_price}, Updated Spread: {spread}"
-                )
+            if "id" in buy_order:
+                # Wait for the buy order to fill
+                await wait_for_order_fill(session, buy_order["id"])
 
-                if spread > (
-                    2 * FEE_RATE * buying_price + TARGET_SPREAD * buying_price
-                ):
-                    print(
-                        f"{symbol} - Placing sell order as the spread is sufficient to cover fees."
+                # Recalculate selling price to ensure spread covers fees
+                bars = await get_bar_data(session, symbol, TIMEFRAME, LOOKBACK_MINUTES)
+                if not bars.empty:
+                    _, selling_price = calculate_prices(bars)
+                    spread = calculate_spread(buying_price, selling_price)
+                    logging.info(
+                        f"Updated Selling Price: {selling_price}, Updated Spread: {spread}"
                     )
-                    sell_order = await place_sell_order(session, symbol, selling_price)
+
+                    if spread > (
+                        2 * FEE_RATE * buying_price + TARGET_SPREAD * buying_price
+                    ):
+                        print(
+                            f"{symbol} - Placing sell order as the spread is sufficient to cover fees."
+                        )
+                        sell_order = await place_sell_order(
+                            session, symbol, selling_price
+                        )
+                    else:
+                        print(
+                            f"{symbol} - Spread is not sufficient to cover fees, holding position."
+                        )
                 else:
-                    print(
-                        f"{symbol} - Spread is not sufficient to cover fees, holding position."
-                    )
-            else:
-                print(f"{symbol} - No bar data retrieved after buy order.")
+                    print(f"{symbol} - No bar data retrieved after buy order.")
         else:
             print(
                 f"{symbol} - Spread is not sufficient to cover fees, not placing buy order."

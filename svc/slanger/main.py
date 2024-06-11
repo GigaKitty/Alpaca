@@ -19,6 +19,10 @@ import os
 # import string
 import time
 
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter, Gauge
+
+
 #######################################################
 #### ENVIRONMENT SETUP ################################
 #######################################################
@@ -37,12 +41,32 @@ api = TradingClient(
 
 # Initialize the Flask app
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
 
 # Initialize the Blueprint for the orders
 orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 #######################################################
+# endpoint_counter = Counter(
+# ticker counter
+# response code counter
+
+# Define a custom counter metric
+post_requests_counter = metrics.counter(
+    "post_requests",
+    "Number of POST requests",
+    labels={"endpoint": lambda: request.endpoint},
+)
+
+post_data_counter = Counter(
+    "post_data_counter", "Counter for specific data in POST requests", ["data"]
+)
+
+# Define a custom gauge metric
+post_data_gauge = Gauge(
+    "post_data_gauge", "Gauge for specific data in POST requests", ["data"]
+)
 
 
 @orders.route("/limit", methods=["POST"])
@@ -177,6 +201,7 @@ def trailing():
 # Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
 # @NOTE: some stocks and ETFs are not allowed to sell short in notional i.e. BKKT, EDIT,
 @orders.route("/notional", methods=["POST"])
+@post_requests_counter
 def notional():
     """
     purchase a dollar amount of a stock or ETF based on TradingView WebHook
@@ -313,6 +338,12 @@ def preprocess():
     g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
 
     app.logger.debug("Data: %s", g.data)
+
+    # Increment the counter for this specific value
+    # post_data_counter.labels(data=g.data).inc()
+
+    # Set the gauge to this specific value
+    # post_data_gauge.labels(data=g.data).set(g.data)
 
 
 # Add an orders after_request to handle postprocessing
