@@ -10,6 +10,7 @@ from alpaca.trading.requests import (
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 from utils import position, sec, order, account, calc
 import json
+import math
 import os
 
 # import threading
@@ -18,9 +19,6 @@ import os
 # import requests
 # import string
 import time
-
-from prometheus_flask_exporter import PrometheusMetrics
-from prometheus_client import Counter, Gauge
 
 
 #######################################################
@@ -41,32 +39,14 @@ api = TradingClient(
 
 # Initialize the Flask app
 app = Flask(__name__)
-metrics = PrometheusMetrics(app)
 
 # Initialize the Blueprint for the orders
 orders = Blueprint("orders", __name__)
+
+
 #######################################################
 #######################################################
 #######################################################
-# endpoint_counter = Counter(
-# ticker counter
-# response code counter
-
-# Define a custom counter metric
-post_requests_counter = metrics.counter(
-    "post_requests",
-    "Number of POST requests",
-    labels={"endpoint": lambda: request.endpoint},
-)
-
-post_data_counter = Counter(
-    "post_data_counter", "Counter for specific data in POST requests", ["data"]
-)
-
-# Define a custom gauge metric
-post_data_gauge = Gauge(
-    "post_data_gauge", "Gauge for specific data in POST requests", ["data"]
-)
 
 
 @orders.route("/limit", methods=["POST"])
@@ -147,6 +127,7 @@ def trailing():
     Places a trailing stop order based on TradingView WebHook for now it only works with the trailing stop percentage that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
+    print(f"setting up trailing stop order")
     max_attempts = 10
     for attempt in range(max_attempts):
         if attempt > max_attempts:
@@ -160,10 +141,15 @@ def trailing():
         valid = {"filled", "partially_filled"}
 
         if ord.status in invalid:
+            print(f"order status: {ord.status}")
             break
         elif ord.status in valid:
+            print(f"order status: {ord.status}")
             g.data["opps"] = position.opps(g.data, api)
-            g.data["qty_available"] = position.qty_available(g.data, api)
+            g.data["qty_available"] = math.floor(
+                float(position.qty_available(g.data, api))
+            )
+            print(f"qty_available: {g.data.get('qty_available')}")
 
             if g.data.get("sp") is True:
                 try:
@@ -171,7 +157,7 @@ def trailing():
                         symbol=g.data.get("ticker"),
                         qty=g.data.get("qty_available"),
                         side=g.data.get("opps"),
-                        time_in_force="gtc",
+                        time_in_force=TimeInForce.DAY,
                         after_hours=g.data.get("after_hours"),
                         trail_percent=g.data.get("trail_percent"),
                         client_order_id=g.data.get("order_id") + "trailing",
@@ -355,7 +341,8 @@ def postprocess(response):
         and response.status_code == 200
         and g.data.get("trailing") is True
     ):
-        trailing()
+        print("trailing stop order")
+        # trailing()
 
     return response
 

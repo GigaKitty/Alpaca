@@ -1,6 +1,8 @@
-tunnel: 4930e7ca-accd-4c6f-891b-112854546539
-credentials-file: /etc/cloudflared/4930e7ca-accd-4c6f-891b-112854546539.json
+tunnel: ${TUNNEL_ID}
+credentials-file: ${CREDENTIALS_FILE}
 ingress:
-  - hostname: dev.haxor.space
-    service: http://localhost:8080
+  - hostname: ${DEV_HOSTNAME}
+    service: ${DEV_SERVICE}
+  - hostname: ${MAIN_HOSTNAME}
+    service: ${MAIN_SERVICE}
   - service: http_status:404

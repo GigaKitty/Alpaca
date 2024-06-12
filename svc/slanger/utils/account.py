@@ -31,7 +31,7 @@ def cash_size(data, api):
 
 
 def qty_size(data, api):
-    account = api.get_account()
+    # account = api.get_account()
     # calculate the size based on cash_size and share price.
     qty = cash_size(api) / g.data.get["ticker"]
 

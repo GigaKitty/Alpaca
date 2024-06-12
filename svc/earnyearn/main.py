@@ -42,12 +42,26 @@ pd.set_option("display.max_rows", None)
 # Redis connection details
 redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
+redis = aioredis.from_url(
+    f"redis://{redis_host}:{redis_port}",
+    encoding="utf-8",
+    db=0,
+    decode_responses=True,
+    socket_timeout=60,
+    socket_connect_timeout=60,
+    socket_keepalive=True,
+)
 
 marketstore_host = os.getenv("MARKETSTORE_HOST", "localhost")
 marketstore_client = pymkts.Client(f"{marketstore_host}/rpc")
 logging.basicConfig(level=logging.INFO)
 ########################################
 ########################################
+
+
+async def publish_list(list, message):
+    redis.lpush(list, message)
+    print(f"Published message: {message} to list: {list}")
 
 
 async def fetch_earnings_calendar():
@@ -90,7 +104,7 @@ async def fetch_earnings_calendar():
                 and earning["epsEstimate"] >= 0
                 and earning["revenueEstimate"] is not None
                 and earning["revenueEstimate"] >= 2.5e8
-            ):  # Filter out low volume stocks 2.5e8 is basically 250million
+            ):  # Filter out low volume stocks 2.5e8 is basically 250million in revenue
                 earnings.append(earning["symbol"])
 
     else:
@@ -98,6 +112,7 @@ async def fetch_earnings_calendar():
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
     print(f"{earnings}")
+    await publish_list(f"{env}_earnings_list", json.dumps(earnings))
 
 
 def send_order(action, symbol, data):
@@ -194,44 +209,35 @@ async def calc_strat(ticker, data, strat):
         anomalies["BB_Sell"] = df["Close"] > df["BBU_5_2.0"]
 
         # Combine buy and sell signals
-        anomalies["Buy"] = (
-            anomalies["MACD_Buy"] | anomalies["RSI_Buy"] | anomalies["BB_Buy"]
-        )
-        anomalies["Sell"] = (
-            anomalies["MACD_Sell"] | anomalies["RSI_Sell"] | anomalies["BB_Sell"]
-        )
+        # anomalies["Buy"] = (
+        #    anomalies["MACD_Buy"] | anomalies["RSI_Buy"] | anomalies["BB_Buy"]
+        # )
+        # anomalies["Sell"] = (
+        #    anomalies["MACD_Sell"] | anomalies["RSI_Sell"] | anomalies["BB_Sell"]
+        # )
 
     except Exception as e:
         logging.error(f"Error detecting anomalies: {e}")
         return pd.DataFrame()
 
-    # Place orders based on buy/sell signals
-    # print(anomalies[anomalies["Buy"] | anomalies["Sell"]])
-
-    # Check the last 10 bars for buy/sell signals
+    # Check the last xxx bars for buy/sell signals
     recent_anomalies = anomalies.tail(25)
 
     buy_condition = (
-        recent_anomalies["MACD_Buy"].any()
-        and recent_anomalies["RSI_Buy"].any()
-        and recent_anomalies["BB_Buy"].any()
+        recent_anomalies["MACD_Buy"].any() and recent_anomalies["RSI_Buy"].any()
     )
     sell_condition = (
-        recent_anomalies["MACD_Sell"].any()
-        and recent_anomalies["RSI_Sell"].any()
-        and recent_anomalies["BB_Sell"].any()
+        recent_anomalies["MACD_Sell"].any() and recent_anomalies["RSI_Sell"].any()
     )
 
+    print(f"Buy condition: {buy_condition} for {ticker}")
+    print(f"Sell condition: {sell_condition} for {ticker}")
     if buy_condition:
-        latest_buy_signal = recent_anomalies[recent_anomalies["Buy"]].iloc[-1]
         print("Buy condition met")
-        print(latest_buy_signal)
         send_order("buy", ticker, data)
 
     if sell_condition:
-        latest_sell_signal = recent_anomalies[recent_anomalies["Sell"]].iloc[-1]
         print("Sell condition met")
-        print(latest_sell_signal)
         send_order("sell", ticker, data)
 
 
@@ -342,11 +348,6 @@ async def process_message(redis, message):
 
 
 async def redis_listener():
-    redis = aioredis.from_url(
-        f"redis://{redis_host}:{redis_port}",
-        encoding="utf-8",
-        decode_responses=True,
-    )
     pubsub = redis.pubsub()
     await pubsub.subscribe("stocks_channel")
 

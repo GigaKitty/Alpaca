@@ -71,22 +71,27 @@ def opps(data, api):
 def sp(data, api):
     side = data.get("side")
     action = data.get("action")
+    ticker = data.get("ticker")
 
     if data.get("pos") is not False:
         # If position need to analyze it and make sure it's on the same side
-        print(f"SMASH OR PASS POS is NOT false let's do analyze")
+        print(f"SMASH OR PASS for {ticker} POS is NOT false let's do analyze")
         print(data.get("pos"))
         return anal(data, api)
     elif data.get("pos") is False and side == action:
         # No position side == action which means same intention from signal to strategy
-        print(f"SMASH OR PASS POS IS false and my {side} == {action}")
+        print(
+            f"SMASH OR PASS POS of {ticker} IS false and my side: {side} == action: {action}"
+        )
         return True
     elif side == action:
         # No position and there's no side then set the g.data["sp"] to True to trade all the things
-        print(f"SMASH OR PASS {side} {action} ")
+        print(f"SMASH OR PASS side: {side} action: {action} ")
         return True
     else:
-        print(f"SMASH OR PASS ALL HAS FAILED {side} {action}")
+        print(
+            f"SMASH OR PASS ALL HAS FAILED for ticker: {ticker}, side: {side} action: {action}"
+        )
         return False
 
 
