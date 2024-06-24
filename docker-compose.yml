@@ -7,10 +7,17 @@ services:
     restart: always
     volumes:
       - ./svc/beancleaner/:/app/
+    networks:
+      - redis_network
+    depends_on:
+      - earnyearn
+      - redis-stack
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - ENVIRONMENT:-dev=${ENVIRONMENT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
   earnyearn:
     build:
       args:
@@ -81,19 +88,20 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
 
-  scalpaca:
-    build:
-      dockerfile: ./Dockerfile
-      args:
-        SVC_DIR: ./svc/scalpaca
-    container_name: scalpaca-${ENVIRONMENT:-dev}
-    restart: always
-    volumes:
-      - ./svc/scalpaca:/app
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
+  # @DISABLED currently as it's not profitable consistently needs work
+  #scalpaca:
+  #  build:
+  #    dockerfile: ./Dockerfile
+  #    args:
+  #      SVC_DIR: ./svc/scalpaca
+  #  container_name: scalpaca-${ENVIRONMENT:-dev}
+  #  restart: always
+  #  volumesj:
+  #    - ./svc/scalpaca:/app
+  #  environment:
+  #    - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #    - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #    - ENVIRONMENT:-dev=${ENVIRONMENT}
 
   sentimentsheperd:
     build:
@@ -155,7 +163,7 @@ services:
       - ${REDIS_PORT_TWO:-8001}:8001
     volumes:
       - redis_data:/data
-      #  - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - redis_network
 

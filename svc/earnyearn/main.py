@@ -12,7 +12,6 @@ import requests
 import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-
 ########################################
 ### SETUP ENV
 ########################################
@@ -42,26 +41,37 @@ pd.set_option("display.max_rows", None)
 # Redis connection details
 redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
-redis = aioredis.from_url(
-    f"redis://{redis_host}:{redis_port}",
-    encoding="utf-8",
-    db=0,
-    decode_responses=True,
-    socket_timeout=60,
-    socket_connect_timeout=60,
-    socket_keepalive=True,
+redis = aioredis.Redis(
+    host=redis_host,
+    port=redis_port,
+    socket_timeout=10,  # Increase the timeout value
+    connection_pool=aioredis.ConnectionPool(
+        host="redis-stack", port=6379, max_connections=10
+    ),
 )
 
 marketstore_host = os.getenv("MARKETSTORE_HOST", "localhost")
 marketstore_client = pymkts.Client(f"{marketstore_host}/rpc")
 logging.basicConfig(level=logging.INFO)
+
+# Track the last buy timestamp for each symbol
+last_buy_timestamp = {}
+cooldown_period = 25  # Number of bars to wait before allowing another buy
+
 ########################################
 ########################################
 
 
-async def publish_list(list, message):
-    redis.lpush(list, message)
-    print(f"Published message: {message} to list: {list}")
+async def publish_list(list_name, message):
+    try:
+        await redis.lpush(list_name, message)
+        print(f"Published message: {message} to list: {list_name}")
+    except aioredis.exceptions.TimeoutError:
+        print(f"Timeout error while publishing message: {message} to list: {list_name}")
+    except aioredis.exceptions.RedisError as e:
+        print(
+            f"Redis error: {e} while publishing message: {message} to list: {list_name}"
+        )
 
 
 async def fetch_earnings_calendar():
@@ -98,6 +108,12 @@ async def fetch_earnings_calendar():
     # Check if there are earnings in the fetched data
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
+            # try:
+            #     trends = finnhub_client.recommendation_trends(earning["symbol"])
+            #    print(f"📊 Recommendation trends: {trends}")
+            # except Exception as e:
+            #    print(f"Error processing earnings data: {e}")
+
             if (
                 earning["year"] == datetime.datetime.now().year  # This year
                 and earning["epsEstimate"] is not None
@@ -111,7 +127,6 @@ async def fetch_earnings_calendar():
         print("😭 No earnings data found for the specified date range.")
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
-    print(f"{earnings}")
     await publish_list(f"{env}_earnings_list", json.dumps(earnings))
 
 
@@ -152,6 +167,7 @@ async def calc_strat(ticker, data, strat):
     """
     Calculates multiple strategies using the ta library
     """
+    global last_buy_timestamp
     df = pd.DataFrame(data)
 
     try:
@@ -208,14 +224,6 @@ async def calc_strat(ticker, data, strat):
         anomalies["BB_Buy"] = df["Close"] < df["BBL_5_2.0"]
         anomalies["BB_Sell"] = df["Close"] > df["BBU_5_2.0"]
 
-        # Combine buy and sell signals
-        # anomalies["Buy"] = (
-        #    anomalies["MACD_Buy"] | anomalies["RSI_Buy"] | anomalies["BB_Buy"]
-        # )
-        # anomalies["Sell"] = (
-        #    anomalies["MACD_Sell"] | anomalies["RSI_Sell"] | anomalies["BB_Sell"]
-        # )
-
     except Exception as e:
         logging.error(f"Error detecting anomalies: {e}")
         return pd.DataFrame()
@@ -232,9 +240,15 @@ async def calc_strat(ticker, data, strat):
 
     print(f"Buy condition: {buy_condition} for {ticker}")
     print(f"Sell condition: {sell_condition} for {ticker}")
+    current_timestamp = df.index[-1].timestamp()
+
     if buy_condition:
-        print("Buy condition met")
-        send_order("buy", ticker, data)
+        if ticker not in last_buy_timestamp or (
+            current_timestamp - last_buy_timestamp[ticker]
+        ) > (cooldown_period * 60):
+            print("Buy condition met")
+            send_order("buy", ticker, data)
+            last_buy_timestamp[ticker] = current_timestamp
 
     if sell_condition:
         print("Sell condition met")
@@ -320,8 +334,8 @@ async def read_data_from_marketstore(data):
         return None
 
 
-# @TODO: for some reason redis doesn't work maybe it's failing but the fix is to restart everything
-# This seems to be down after hours
+# @TODO: the redis connections is not working for this function
+# it's because i've changed it recently to include publishing to  redis_host
 async def process_message(redis, message):
     """
     Process the message if it meets the filtering criteria and log to Redis.
@@ -353,6 +367,7 @@ async def redis_listener():
 
     async for message in pubsub.listen():
         if message["type"] == "message":
+            print(f"Received message: {message['data']}")
             await process_message(redis, message["data"])
 
 

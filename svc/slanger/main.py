@@ -187,7 +187,6 @@ def trailing():
 # Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
 # @NOTE: some stocks and ETFs are not allowed to sell short in notional i.e. BKKT, EDIT,
 @orders.route("/notional", methods=["POST"])
-@post_requests_counter
 def notional():
     """
     purchase a dollar amount of a stock or ETF based on TradingView WebHook

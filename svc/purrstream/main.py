@@ -6,6 +6,8 @@ import logging
 import os
 import redis
 
+# import redis.asyncio as aioredis
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 

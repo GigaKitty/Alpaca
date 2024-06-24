@@ -28,38 +28,77 @@ est = timezone("US/Eastern")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# Redis connection details
+redis_host = os.getenv("REDIS_HOST", "localhost")
+redis_port = int(os.getenv("REDIS_PORT", 6379))
 #######################################################
 #######################################################
 #######################################################
 
 
-def clean_the_bean():
+async def get_earnings_list():
+    """
+    List is published via another service and is part of earnyearn service
+    This grabs the list from Redis returns the list of tickers and closes redis connection
+    """
+    redis = None
+    try:
+        redis = aioredis.from_url(
+            f"redis://{redis_host}:{redis_port}",
+            encoding="utf-8",
+            db=0,
+            decode_responses=True,
+            socket_timeout=60,
+            socket_connect_timeout=60,
+            socket_keepalive=True,
+        )
+        latest_message = await redis.lindex("dev_earnings_list", 0)
+        return latest_message
+    except Exception as e:
+        logging.error(f"Error fetching latest message from Redis: {e}")
+        return None
+    finally:
+        if redis:
+            await redis.close()
+
+
+async def clean_the_bean():
     """
     The overall idea is to free up capital and don't carry trades through after hours or weekends.
-    Tickers can be fitlered based on a list of tickers that are known to have earnings or other events that we'd like to hodl.
-    @TODO: add a check to see if it's on a global list for instance earnings and if it is then skip it. This data can be set/get from redis as it's not critical for persistance
+    Tickers are filtered based on a list of tickers that are known to have earnings or other events that we'd like to hold.
+    Currently only supports teh earnyearn list but others can be added if needed such as positions we'd like to hold over time.
     """
-    print("Cleaning the bean")
-    # Get all open positions
+    logging.info("fetching positions to clean up the beans")
     positions = api.get_all_positions()
+    logging.info(f"Found {len(positions)} positions")
+    earnings_list = await get_earnings_list()
+    logging.info(f"Found {len(earnings_list)} earnings")
 
-    for position in positions:
+    remaining_positions = [
+        position for position in positions if position.symbol not in earnings_list
+    ]
+
+    for position in remaining_positions:
         symbol = position.symbol
         unrealized_pl = float(position.unrealized_pl)
+        logging.info(
+            f"Found position in {position.symbol} with unrealized P/L {unrealized_pl}"
+        )
 
         # Check if the unrealized loss is less than $1
         if unrealized_pl >= -1.0:
             try:
-                # Close the position
+                logging.info(f"Closing position in {symbol} with unrealized P/L")
                 api.close_position(symbol)
                 if unrealized_pl >= 0:
-                    print(
-                        f"Closed position in {symbol} with a profit of {unrealized_pl}"
+                    logging.info(
+                        f"Closing position in {symbol} with a profit of {unrealized_pl}"
                     )
                 else:
-                    print(f"Closed position in {symbol} with a loss of {unrealized_pl}")
+                    logging.info(f"Closed position in {symbol} with a loss of {unreal}")
             except Exception as e:
-                print(f"Error closing position in {symbol}: {e}")
+                logging.error(f"Error closing position in {symbol}: {e}")
 
 
 async def scheduler_task(scheduler):
@@ -67,13 +106,15 @@ async def scheduler_task(scheduler):
     Starts the scheduler to run tasks at specified intervals.
     """
     scheduler.start()
-    # Keep the scheduler running indefinitely
-    logging.info("Scheduler started")
+    logging.info(f"Scheduler started")
     while True:
         await asyncio.sleep(1)
 
 
 async def main():
+    """
+    Primary entry point for the application sets up the scheduler to run the bean cleaner service
+    """
     scheduler = AsyncIOScheduler(timezone=est)
     logging.info("Starting the bean cleaner service")
     trigger = CronTrigger(day_of_week="mon-fri", hour=15, minute=55, timezone=est)
@@ -84,6 +125,10 @@ async def main():
 
 if __name__ == "__main__":
     """
-    Entry point for the application
+    Initialize the bean cleaner service
     """
-    asyncio.run(main())
+
+    async def run_tasks():
+        await main()
+
+    asyncio.run(run_tasks())
