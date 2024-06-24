@@ -4,9 +4,7 @@ import asyncio
 import json
 import logging
 import os
-import redis
-
-# import redis.asyncio as aioredis
+import redis.asyncio as aioredis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +14,31 @@ connected_clients = set()
 # Connect to Redis
 redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
-redis_client = redis.StrictRedis(host=redis_host, port=redis_port, db=0)
+# redis_client = aioredis.StrictRedis(host=redis_host, port=redis_port, db=0)
+
+redis_client = aioredis.from_url(
+    f"redis://{redis_host}:{redis_port}",
+    encoding="utf-8",
+    db=0,
+    decode_responses=True,
+    socket_timeout=60,
+    socket_connect_timeout=60,
+    socket_keepalive=True,
+)
+
+
+async def get_earnings_list():
+    """
+    List is published via another service and is part of earnyearn service
+    This grabs the list from Redis returns the list of tickers and closes redis connection
+    """
+    try:
+        earnings_list = await redis_client.lindex("dev_earnings_list", 0)
+        return json.loads(earnings_list)
+
+    except Exception as e:
+        logging.error(f"Error fetching latest message from Redis: {e}")
+        return None
 
 
 async def handle_connection(request):
@@ -45,7 +67,7 @@ async def broadcast(message, channel):
     if connected_clients:  # Check if there are any connected clients
         await asyncio.wait([client.send_str(message) for client in connected_clients])
     # Publish message to Redis
-    redis_client.publish(channel, message)
+    await redis_client.publish(channel, message)
 
 
 async def news_socket():
@@ -123,17 +145,16 @@ async def stocks_socket():
                 isinstance(response_data, list)
                 and response_data[0].get("T") == "success"
             ):
+                earnings_list = await get_earnings_list()
+                logging.info(f"Subscribing to the following tickers: {earnings_list}")
                 subscription_message = json.dumps(
                     {
                         "action": "subscribe",
-                        "trades": ["*"],
-                        "quotes": ["*"],
+                        "trades": earnings_list,
+                        "quotes": earnings_list,
                         "bars": ["*"],
                         "statuses": ["*"],
                     }
-                )
-                logging.info(
-                    "Stocks authentication successful. Connected to the WebSocket."
                 )
                 await websocket.send_str(subscription_message)
 
@@ -154,7 +175,7 @@ async def stocks_socket():
 
 async def crypto_socket():
     """
-    @SEE: https://docs.alpaca.markets/docs/real-time-crypto-pricing-data
+    @SEE: https://docs.alpaca.markets/docs/real-time-crypto-pr!
     """
     wss_crypto_url = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
     api_key = os.getenv("APCA_API_KEY_ID")
@@ -210,11 +231,12 @@ async def crypto_socket():
 
 
 async def main():
-    crypto_task = crypto_socket()
+    # commented out until I can get the premium again or have a crypto strategy
+    # crypto_task = crypto_socket()
     news_task = news_socket()
     stocks_task = stocks_socket()
 
-    await asyncio.gather(news_task, stocks_task, crypto_task)
+    await asyncio.gather(news_task, stocks_task)
 
 
 if __name__ == "__main__":

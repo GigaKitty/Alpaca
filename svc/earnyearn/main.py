@@ -52,6 +52,8 @@ redis = aioredis.Redis(
 
 marketstore_host = os.getenv("MARKETSTORE_HOST", "localhost")
 marketstore_client = pymkts.Client(f"{marketstore_host}/rpc")
+finnhub_client = finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY"))
+
 logging.basicConfig(level=logging.INFO)
 
 # Track the last buy timestamp for each symbol
@@ -74,6 +76,33 @@ async def publish_list(list_name, message):
         )
 
 
+async def trend_getter(symbol):
+    try:
+        data = finnhub_client.recommendation_trends(symbol)
+    except Exception as e:
+        print(f"Error processing earnings data: {e}")
+
+    sorted_data = sorted(
+        data,
+        key=lambda x: datetime.datetime.strptime(x["period"], "%Y-%m-%d"),
+        reverse=True,
+    )
+
+    latest_entry = sorted_data[0]
+
+    trends = {
+        key: latest_entry[key]
+        for key in ["buy", "hold", "sell", "strongBuy", "strongSell"]
+    }
+    highest_trend = max(trends, key=trends.get)
+
+    print(f"The latest period for {symbol} is: {latest_entry['period']}")
+    print(
+        f"The highest trend for {symbol} is: {highest_trend} with a value of {trends[highest_trend]}"
+    )
+    return highest_trend
+
+
 async def fetch_earnings_calendar():
     """
     Fetches the earnings calendar for the next 7 days from Finnhub API
@@ -84,7 +113,6 @@ async def fetch_earnings_calendar():
     global earnings
 
     # Configure your Finnhub API key here
-    finnhub_client = finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY"))
 
     # reset earnings to empty list
     earnings = []
@@ -105,15 +133,8 @@ async def fetch_earnings_calendar():
         international=False,
     )
 
-    # Check if there are earnings in the fetched data
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
-            # try:
-            #     trends = finnhub_client.recommendation_trends(earning["symbol"])
-            #    print(f"📊 Recommendation trends: {trends}")
-            # except Exception as e:
-            #    print(f"Error processing earnings data: {e}")
-
             if (
                 earning["year"] == datetime.datetime.now().year  # This year
                 and earning["epsEstimate"] is not None
@@ -121,13 +142,16 @@ async def fetch_earnings_calendar():
                 and earning["revenueEstimate"] is not None
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million in revenue
-                earnings.append(earning["symbol"])
+                trend = await trend_getter(earning["symbol"])
+                if trend == "strongBuy" or trend == "buy":
+                    print(f"Adding {earning['symbol']} to the earnings list.")
+                    earnings.append(earning["symbol"])
 
     else:
         print("😭 No earnings data found for the specified date range.")
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
-    await publish_list(f"{env}_earnings_list", json.dumps(earnings))
+    # await publish_list(f"{env}_earnings_list", json.dumps(earnings))
 
 
 def send_order(action, symbol, data):
@@ -170,6 +194,8 @@ async def calc_strat(ticker, data, strat):
     global last_buy_timestamp
     df = pd.DataFrame(data)
 
+    print(f"Calculating strategy for {ticker}")
+
     try:
         # Check if 'Epoch' is already the index
         if df.index.name != "Epoch":
@@ -198,7 +224,7 @@ async def calc_strat(ticker, data, strat):
         df["RSI_14"] = ta.rsi(df["Close"])
 
         # Calculate Bollinger Bands
-        bb = ta.bbands(df["Close"])
+        bb = ta.bbands(df[""])
         df = df.join(bb)
 
         logging.info("Technical indicator macd, rsi, bb, calculated successfully.")
@@ -367,7 +393,6 @@ async def redis_listener():
 
     async for message in pubsub.listen():
         if message["type"] == "message":
-            print(f"Received message: {message['data']}")
             await process_message(redis, message["data"])
 
 
