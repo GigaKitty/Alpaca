@@ -31,3 +31,4 @@ scrape_configs:
   - job_name: "slanger"
     static_configs:
       - targets: ["https://dev.haxor.space"]
+        scrape_configs:

@@ -96,10 +96,10 @@ async def trend_getter(symbol):
     }
     highest_trend = max(trends, key=trends.get)
 
-    print(f"The latest period for {symbol} is: {latest_entry['period']}")
     print(
         f"The highest trend for {symbol} is: {highest_trend} with a value of {trends[highest_trend]}"
     )
+
     return highest_trend
 
 
@@ -151,7 +151,7 @@ async def fetch_earnings_calendar():
         print("😭 No earnings data found for the specified date range.")
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
-    # await publish_list(f"{env}_earnings_list", json.dumps(earnings))
+    await publish_list(f"{env}_earnings_list", json.dumps(earnings))
 
 
 def send_order(action, symbol, data):
@@ -217,17 +217,33 @@ async def calc_strat(ticker, data, strat):
 
     try:
         # Calculate MACD
-        macd = ta.macd(df["Close"])
-        df = df.join(macd)
+        try:
+            macd = ta.macd(df["Close"])
+            df = df.join(macd)
+            logging.info("MACD calculated successfully.")
+        except Exception as e:
+            logging.error(f"Error calculating MACD: {e}")
+            raise
 
         # Calculate RSI
-        df["RSI_14"] = ta.rsi(df["Close"])
+        try:
+            df["RSI_14"] = ta.rsi(df["Close"])
+            logging.info("RSI calculated successfully.")
+        except Exception as e:
+            logging.error(f"Error calculating RSI: {e}")
+            raise
 
         # Calculate Bollinger Bands
-        bb = ta.bbands(df[""])
-        df = df.join(bb)
+        try:
+            bb = ta.bbands(df["Close"])
+            df = df.join(bb)
+            logging.info("Bollinger Bands calculated successfully.")
+        except Exception as e:
+            logging.error(f"Error calculating Bollinger Bands: {e}")
+            raise
 
         logging.info("Technical indicator macd, rsi, bb, calculated successfully.")
+
     except Exception as e:
         logging.error(f"Error calculating technical indicators: {e}")
 

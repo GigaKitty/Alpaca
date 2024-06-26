@@ -96,7 +96,9 @@ async def clean_the_bean():
                         f"Closing position in {symbol} with a profit of {unrealized_pl}"
                     )
                 else:
-                    logging.info(f"Closed position in {symbol} with a loss of {unreal}")
+                    logging.info(
+                        f"Closed position in {symbol} with a loss of {unrealized_pl}"
+                    )
             except Exception as e:
                 logging.error(f"Error closing position in {symbol}: {e}")
 

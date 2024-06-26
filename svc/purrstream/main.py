@@ -27,6 +27,23 @@ redis_client = aioredis.from_url(
 )
 
 
+async def update_earnings_list_periodically(update_interval, websocket):
+    while True:
+        earnings_list = await get_earnings_list()
+        logging.info(f"Updating subscription to the following tickers: {earnings_list}")
+        subscription_message = json.dumps(
+            {
+                "action": "subscribe",
+                "trades": earnings_list,
+                "quotes": earnings_list,
+                "bars": ["*"],
+                "statuses": ["*"],
+            }
+        )
+        await websocket.send_str(subscription_message)
+        await asyncio.sleep(update_interval)
+
+
 async def get_earnings_list():
     """
     List is published via another service and is part of earnyearn service
@@ -145,18 +162,20 @@ async def stocks_socket():
                 isinstance(response_data, list)
                 and response_data[0].get("T") == "success"
             ):
-                earnings_list = await get_earnings_list()
-                logging.info(f"Subscribing to the following tickers: {earnings_list}")
-                subscription_message = json.dumps(
-                    {
-                        "action": "subscribe",
-                        "trades": earnings_list,
-                        "quotes": earnings_list,
-                        "bars": ["*"],
-                        "statuses": ["*"],
-                    }
-                )
-                await websocket.send_str(subscription_message)
+                # earnings_list = await get_earnings_list()
+                # logging.info(f"Subscribing to the following tickers: {earnings_list}")
+                # subscription_message = json.dumps(
+                #    {
+                #        "action": "subscribe",
+                #        "trades": earnings_list,
+                #        "quotes": earnings_list,
+                #        "bars": ["*"],
+                #        "statuses": ["*"],
+                #    }
+                # )
+                # await websocket.send_str(subscription_message)
+
+                asyncio.create_task(update_earnings_list_periodically(60, websocket))
 
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
