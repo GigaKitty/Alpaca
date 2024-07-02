@@ -1,0 +1,6 @@
+aiohttp==3.9.5
+aioredis==2.0.1
+apscheduler==3.10.4
+beautifulsoup4==4.12.3 
+pandas==2.2.1
+redis==5.0.4

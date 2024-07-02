@@ -1,0 +1,94 @@
+services:
+  marketstore:
+    image: alpacamarkets/marketstore:latest
+    container_name: marketstore-${ENVIRONMENT:-dev}
+    restart: always
+    ports:
+      - ${MARKETSTORE_PORT:-5993}:5993
+    volumes:
+      - ./_data/marketstore-data:/data
+      - ./_config/mkts.yml:/etc/mkts.yml
+    networks:
+      - marketstore_network_${ENVIRONMENT}
+
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: redis-stack-${ENVIRONMENT:-dev}
+    restart: always
+    #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - ${REDIS_PORT:-6379}:6379
+      - ${REDIS_PORT_TWO:-8001}:8001
+    volumes:
+      - redis_data:/data
+      - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - redis_network_${ENVIRONMENT}
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-${ENVIRONMENT:-dev}
+    restart: always
+    ports:
+      - ${GRAFANA_PORT:-3000}:3000
+    networks:
+      - redis_network_${ENVIRONMENT}
+      - monitoring_${ENVIRONMENT}
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+    depends_on:
+      - redis-stack
+      #- prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  #prometheus:
+  #  image: prom/prometheus:latest
+  #  container_name: prometheus-${ENVIRONMENT:-dev}
+  #  restart: unless-stopped
+  #  volumes:
+  #    - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
+  #  command:
+  #    - "--config.file=/etc/prometheus/prometheus.yml"
+  #  ports:
+  #    - ${PROMETHEUS_PORT:-9090}:9090
+  #  networks:
+  #    - monitoring
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-${ENVIRONMENT:-dev}
+    restart: always
+    command: >
+      tunnel --config /etc/cloudflared/config.yml --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    #entrypoint: ["/bin/sh", "-c", "envsubst < /etc/cloudflared/config.yml.template > /etc/cloudflared/config.yml && cloudflared tunnel --config /etc/cloudflared/config.yml run"]
+    network_mode: host
+    environment:
+      - CLOUDFLARED_HOSTNAME=${CLOUDFLARED_HOSTNAME}
+      - CLOUDFLARED_SERVICE=${CLOUDFLARED_SERVICE}
+      - CLOUDFLARED_TUNNEL_ID=${CLOUDFLARED_TUNNEL_ID}
+      - CLOUDFLARED_TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
+      - CREDENTIALS_FILE=/etc/cloudflared/tunnelid.json
+      - DEV_HOSTNAME=dev.haxor.space
+      - DEV_SERVICE=http://localhost:8080
+      - MAIN_HOSTNAME=main.haxor.space
+      - MAIN_SERVICE=http://localhost:8081
+      - TUNNEL_ID=your-tunnel-id
+      - TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
+    volumes:
+      - /home/captain/.cloudflared:/etc/cloudflared
+      #- ./cloudflared:/etc/cloudflared
+
+networks:
+  monitoring_${ENVIRONMENT}:
+  cloudflared_${ENVIRONMENT}:
+    driver: bridge
+  redis_network_${ENVIRONMENT}:
+    driver: bridge
+  marketstore_network_${ENVIRONMENT}:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  grafana_data:

@@ -123,6 +123,20 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
 
+  aristocrats:
+    build:
+      args:
+        SVC_DIR: ./svc/aristocrats
+    container_name: aristocrats-${ENVIRONMENT:-dev}
+    depends_on:
+      - redis-stack
+    networks:
+      - redis_network
+    restart: always
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+
   slanger:
     build:
       args:
@@ -209,14 +223,13 @@ services:
       - CLOUDFLARED_HOSTNAME=${CLOUDFLARED_HOSTNAME}
       - CLOUDFLARED_SERVICE=${CLOUDFLARED_SERVICE}
       - CLOUDFLARED_TUNNEL_ID=${CLOUDFLARED_TUNNEL_ID}
+      - CLOUDFLARED_TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
       - CLOUDFLARED_TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
       - CREDENTIALS_FILE=/etc/cloudflared/tunnelid.json
       - DEV_HOSTNAME=dev.haxor.space
       - DEV_SERVICE=http://localhost:8080
       - MAIN_HOSTNAME=main.haxor.space
       - MAIN_SERVICE=http://localhost:8081
-      - TUNNEL_ID=your-tunnel-id
-      - TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
     volumes:
       - /home/captain/.cloudflared:/etc/cloudflared
       #- ./cloudflared:/etc/cloudflared
