@@ -17,13 +17,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 ########################################
 api_key = os.getenv("APCA_API_KEY_ID")
 api_sec = os.getenv("APCA_API_SECRET_KEY")
-app = os.getenv("COPILOT_APPLICATION_NAME", "dev")
 bar_number = 42
 dataframes = {}
-env = os.getenv("COPILOT_ENVIRONMENT_NAME", "dev")
 fetch_pause = 60
 hook_url = os.getenv("EARNYEARN_ORDER_ENDPOINT")
-stream = "wss://stream.data.alpaca.markets/v2/sip"
+# stream = "wss://stream.data.alpaca.markets/v2/sip"
 earnings = []
 timeframe = "1Min"
 attribute_group = "OHLCV"
@@ -32,11 +30,18 @@ tv_sig = os.getenv("TRADINGVIEW_SECRET")
 # Auth Message json
 auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
+trend_cache = {}
+
 # Set the display options to NO LIMITS!!!
 pd.set_option("display.max_columns", None)
 pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
+
+import redis
+
+r = redis.Redis(host="redis-stack-core", port=6379)
+print(r.ping())
 
 # Redis connection details
 redis_host = os.getenv("REDIS_HOST", "localhost")
@@ -46,12 +51,11 @@ redis = aioredis.Redis(
     port=redis_port,
     socket_timeout=10,  # Increase the timeout value
     connection_pool=aioredis.ConnectionPool(
-        host="redis-stack", port=6379, max_connections=10
+        host="redis-stack", port=redis_port, max_connections=10
     ),
 )
 
-marketstore_host = os.getenv("MARKETSTORE_HOST", "localhost")
-marketstore_client = pymkts.Client(f"{marketstore_host}/rpc")
+marketstore_client = pymkts.Client(f"http://marketstore:5993/rpc")
 finnhub_client = finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY"))
 
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +82,10 @@ async def publish_list(list_name, message):
 
 async def trend_getter(symbol):
     try:
+        cached_data = await redis.get(f"{symbol}_trend")
+        if cached_data:
+            return json.loads(cached_data)
+
         data = finnhub_client.recommendation_trends(symbol)
     except Exception as e:
         print(f"Error processing earnings data: {e}")
@@ -99,6 +107,9 @@ async def trend_getter(symbol):
     print(
         f"The highest trend for {symbol} is: {highest_trend} with a value of {trends[highest_trend]}"
     )
+
+    await redis.set(f"{symbol}_trend", json.dumps(highest_trend), ex=3600)
+    logging.info(f"Setting {symbol} with {highest_trend} signal to the earnings list.")
 
     return highest_trend
 
@@ -144,20 +155,20 @@ async def fetch_earnings_calendar():
             ):  # Filter out low volume stocks 2.5e8 is basically 250million in revenue
                 trend = await trend_getter(earning["symbol"])
                 if trend == "strongBuy" or trend == "buy":
-                    print(f"Adding {earning['symbol']} to the earnings list.")
                     earnings.append(earning["symbol"])
 
     else:
         print("😭 No earnings data found for the specified date range.")
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
-    await publish_list(f"{env}_earnings_list", json.dumps(earnings))
+    await publish_list("earnings_list", json.dumps(earnings))
 
 
 def send_order(action, symbol, data):
     """
     Sends a POST request to the TradingView webhook URL
     required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
+    side is hardcoded as buy for now
     """
     data = {
         "action": action,
@@ -167,10 +178,10 @@ def send_order(action, symbol, data):
         "interval": "1m",
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
-        "side": "buy",
+        "side": "long",
         "signature": tv_sig,
         "ticker": symbol,
-        "trailing": True,
+        "trailing": False,
         "volume": data["Volume"].iloc[-1],
     }
 
@@ -376,8 +387,6 @@ async def read_data_from_marketstore(data):
         return None
 
 
-# @TODO: the redis connections is not working for this function
-# it's because i've changed it recently to include publishing to  redis_host
 async def process_message(redis, message):
     """
     Process the message if it meets the filtering criteria and log to Redis.

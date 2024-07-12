@@ -1,219 +1,56 @@
 services:
-  beancleaner:
-    build:
-      args:
-        SVC_DIR: ./svc/beancleaner
-    container_name: beancleaner-${ENVIRONMENT:-dev}
-    restart: always
-    volumes:
-      - ./svc/beancleaner/:/app/
-    networks:
-      - redis_network
-    depends_on:
-      - earnyearn
-      - redis-stack
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-  earnyearn:
-    build:
-      args:
-        SVC_DIR: ./svc/earnyearn
-    container_name: earnyearn-${ENVIRONMENT:-dev}
-    restart: always
-    volumes:
-      - ./svc/earnyearn/:/app/
-    depends_on:
-      - marketstore
-      - purrstream
-      - redis-stack
-    networks:
-      - redis_network
-      - marketstore_network
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
-      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-      - MARKETSTORE_HOST=${MARKETSTORE_HOST}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
-
-  # pacapredictor:
-  #   build:
-  #     args:
-  #       SVC_DIR: ./svc/pacapredictor
-  #   container_name: parapredictor-${ENVIRONMENT:-dev}
-  #   restart: always
-  #   runtime: nvidia
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
-  #   volumes:
-  #     - ./svc/pacapredictor/:/app/
-  #   environment:
-  #     - NVIDIA_VISIBLE_DEVICES=all
-  #     - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-  #     - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-  #     - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-  #     - ENVIRONMENT:-dev=${ENVIRONMENT}
-
-  purrstream:
-    build:
-      args:
-        SVC_DIR: ./svc/purrstream
-    container_name: purrstream-${ENVIRONMENT:-dev}
-    restart: always
-    depends_on:
-      - redis-stack
-    ports:
-      - ${PURRSTREAM_PORT:-8000}:8000
-    networks:
-      - redis_network
-    volumes:
-      - ./svc/purrstream/:/app/
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-
-  # @DISABLED currently as it's not profitable consistently needs work
-  #scalpaca:
-  #  build:
-  #    dockerfile: ./Dockerfile
-  #    args:
-  #      SVC_DIR: ./svc/scalpaca
-  #  container_name: scalpaca-${ENVIRONMENT:-dev}
-  #  restart: always
-  #  volumesj:
-  #    - ./svc/scalpaca:/app
-  #  environment:
-  #    - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-  #    - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-  #    - ENVIRONMENT:-dev=${ENVIRONMENT}
-
-  sentimentsheperd:
-    build:
-      args:
-        SVC_DIR: ./svc/sentimentsheperd
-    container_name: sentimentsheperd-${ENVIRONMENT:-dev}
-    restart: always
-    depends_on:
-      - redis-stack
-    networks:
-      - redis_network
-    volumes:
-      - ./svc/sentimentsheperd/:/app/
-    environment:
-      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-
   aristocrats:
     build:
       args:
         SVC_DIR: ./svc/aristocrats
-    container_name: aristocrats-${ENVIRONMENT:-dev}
-    depends_on:
-      - redis-stack
+    container_name: aristocrats-${ENVIRONMENT}
+    profiles:
+      - dev
+      - main
+    labels:
+      - "profile=dev"
+      - "profile=main"
     networks:
-      - redis_network
+      - core_network
     restart: always
     environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
 
-  slanger:
+  beancleaner:
     build:
       args:
-        SVC_DIR: ./svc/slanger
+        SVC_DIR: ./svc/beancleaner
+    container_name: beancleaner-${ENVIRONMENT}
+    profiles:
+      - dev
+      - main
+    labels:
+      - "profile=dev"
+      - "profile=main"
     restart: always
-    container_name: slanger-${ENVIRONMENT:-dev}
-    ports:
-      - ${SLANGER_PORT:-5000}:5000
     volumes:
-      - ./svc/slanger/:/app/
+      - ./svc/beancleaner/:/app/
+    networks:
+      - core_network
     depends_on:
-      - cloudflared
+      - earnyearn
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT:-dev=${ENVIRONMENT}
-      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
-
-  marketstore:
-    image: alpacamarkets/marketstore:latest
-    container_name: marketstore-${ENVIRONMENT:-dev}
-    restart: always
-    ports:
-      - ${MARKETSTORE_PORT:-5993}:5993
-    volumes:
-      - ./_data/marketstore-data:/data
-      - ./_config/mkts.yml:/etc/mkts.yml
-    networks:
-      - marketstore_network
-
-  redis-stack:
-    image: redis/redis-stack:latest
-    container_name: redis-stack-${ENVIRONMENT:-dev}
-    restart: always
-    #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    ports:
-      - ${REDIS_PORT:-6379}:6379
-      - ${REDIS_PORT_TWO:-8001}:8001
-    volumes:
-      - redis_data:/data
-      - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
-    networks:
-      - redis_network
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana-${ENVIRONMENT:-dev}
-    restart: always
-    ports:
-      - ${GRAFANA_PORT:-3000}:3000
-    networks:
-      - redis_network
-      - monitoring
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
-    depends_on:
-      - redis-stack
-      #- prometheus
-    volumes:
-      - grafana_data:/var/lib/grafana
-
-  #prometheus:
-  #  image: prom/prometheus:latest
-  #  container_name: prometheus-${ENVIRONMENT:-dev}
-  #  restart: unless-stopped
-  #  volumes:
-  #    - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
-  #  command:
-  #    - "--config.file=/etc/prometheus/prometheus.yml"
-  #  ports:
-  #    - ${PROMETHEUS_PORT:-9090}:9090
-  #  networks:
-  #    - monitoring
+      - ENVIRONMENT=${ENVIRONMENT}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: cloudflared-${ENVIRONMENT:-dev}
+    container_name: cloudflared-${ENVIRONMENT}
+    profiles:
+      - dev
+      - main
+    labels:
+      - "profile=dev"
+      - "profile=main"
     restart: always
     command: >
       tunnel --config /etc/cloudflared/config.yml --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
@@ -226,22 +63,156 @@ services:
       - CLOUDFLARED_TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
       - CLOUDFLARED_TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
       - CREDENTIALS_FILE=/etc/cloudflared/tunnelid.json
-      - DEV_HOSTNAME=dev.haxor.space
-      - DEV_SERVICE=http://localhost:8080
-      - MAIN_HOSTNAME=main.haxor.space
-      - MAIN_SERVICE=http://localhost:8081
     volumes:
-      - /home/captain/.cloudflared:/etc/cloudflared
+      - /home/captain/.cloudflared/${ENVIRONMENT}:/etc/cloudflared
       #- ./cloudflared:/etc/cloudflared
 
+  earnyearn:
+    build:
+      args:
+        SVC_DIR: ./svc/earnyearn
+    container_name: earnyearn-${ENVIRONMENT}
+    profiles:
+      - dev
+      - main
+    labels:
+      - "profile=dev"
+      - "profile=main"
+    restart: always
+    volumes:
+      - ./svc/earnyearn/:/app/
+    networks:
+      - core_network
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+
+  slanger:
+    build:
+      args:
+        SVC_DIR: ./svc/slanger
+    restart: always
+    container_name: slanger-${ENVIRONMENT}
+    profiles:
+      - dev
+      - main
+    labels:
+      - "profile=dev"
+      - "profile=main"
+    ports:
+      - ${SLANGER_PORT}:5000
+    volumes:
+      - ./svc/slanger/:/app/
+    depends_on:
+      - cloudflared
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+
+  ################
+  ## CORE
+  ################
+  purrstream:
+    build:
+      args:
+        SVC_DIR: ./svc/purrstream
+    container_name: purrstream-core
+    restart: always
+    ports:
+      - ${PURRSTREAM_PORT:-8000}:8000
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    networks:
+      - core_network
+    volumes:
+      - ./svc/purrstream/:/app/
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-core
+    restart: always
+    ports:
+      - ${GRAFANA_PORT:-3000}:3000
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    networks:
+      - core_network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  marketstore:
+    image: alpacamarkets/marketstore:latest
+    container_name: marketstore-core
+    restart: always
+    ports:
+      - ${MARKETSTORE_PORT:-5993}:5993
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    volumes:
+      - ./_data/marketstore-data:/data
+      - ./_config/mkts.yml:/etc/mkts.yml
+    networks:
+      - core_network
+
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: redis-stack-core
+    restart: always
+    #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - ${REDIS_PORT:-6379}:6379
+      - ${REDIS_PORT_TWO:-8001}:8001
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    volumes:
+      - redis_data:/data
+      - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - core_network
+
 networks:
-  monitoring:
-  cloudflared:
-    driver: bridge
-  redis_network:
-    driver: bridge
-  marketstore_network:
-    driver: bridge
+  core_network:
+    external: true
+#networks:
+#  cloudflared_dev:
+#    driver: bridge
+#  core_network:
+#    driver: bridge
+#  marketstore_network:
+#    driver: bridge
+#  #core_network_dev:
+#  #  driver: bridge
+#  #marketstore_network_dev:
+#  #  driver: bridge
+#  cloudflared_main:
+#    driver: bridge
+#  #core_network_main:
+#  #  driver: bridge
+#  #marketstore_network_main:
+#  #  driver: bridge
 
 volumes:
   redis_data:

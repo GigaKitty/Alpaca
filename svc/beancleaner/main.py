@@ -53,7 +53,7 @@ async def get_earnings_list():
             socket_connect_timeout=60,
             socket_keepalive=True,
         )
-        latest_message = await redis.lindex("dev_earnings_list", 0)
+        latest_message = await redis.lindex("earnings_list", 0)
         return latest_message
     except Exception as e:
         logging.error(f"Error fetching latest message from Redis: {e}")

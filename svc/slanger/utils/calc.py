@@ -5,15 +5,10 @@ Use the data object to get the values from the webhook and return the calculated
 
 
 def profit(data):
-    return 1
     pos = data.get("pos")
-    print("-----------------------------")
-    print(pos)
-    print("-----------------------------")
     if pos is not False:
-        # if unrealized_pl is greater than 1% of market_value
-        if float(pos.unrealized_pl) >= float(pos.market_value) * data["risk"]:
-            logger.info("Position closed")
+        print(f"PROFIT: {pos.unrealized_pl}")
+        return float(pos.unrealized_pl)
     else:
         return False
 
@@ -53,7 +48,7 @@ def side(data):
     if data.get("side") is None:
         return data.get("action")
     else:
-        return "buy"
+        return "long"
 
 
 def notional(data):

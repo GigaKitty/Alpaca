@@ -50,7 +50,7 @@ async def get_earnings_list():
     This grabs the list from Redis returns the list of tickers and closes redis connection
     """
     try:
-        earnings_list = await redis_client.lindex("dev_earnings_list", 0)
+        earnings_list = await redis_client.lindex("earnings_list", 0)
         return json.loads(earnings_list)
 
     except Exception as e:
@@ -162,19 +162,6 @@ async def stocks_socket():
                 isinstance(response_data, list)
                 and response_data[0].get("T") == "success"
             ):
-                # earnings_list = await get_earnings_list()
-                # logging.info(f"Subscribing to the following tickers: {earnings_list}")
-                # subscription_message = json.dumps(
-                #    {
-                #        "action": "subscribe",
-                #        "trades": earnings_list,
-                #        "quotes": earnings_list,
-                #        "bars": ["*"],
-                #        "statuses": ["*"],
-                #    }
-                # )
-                # await websocket.send_str(subscription_message)
-
                 asyncio.create_task(update_earnings_list_periodically(60, websocket))
 
                 async for msg in websocket:
