@@ -1,0 +1,14 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    apiVersion: 1
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis-stack:6379
+    jsonData:
+      client: "redis"
+      secure: false

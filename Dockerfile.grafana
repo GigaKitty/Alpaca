@@ -1,0 +1,32 @@
+FROM grafana/grafana:latest AS grafana
+
+# Install plugins
+#RUN grafana cli plugins install grafana-azure-monitor-datasource
+RUN grafana cli plugins install grafana-clock-panel
+#RUN grafana cli plugins install grafana-cloudwatch-datasource
+#RUN grafana cli plugins install grafana-csv-datasource
+#RUN grafana cli plugins install grafana-elasticsearch-datasource
+#RUN grafana cli plugins install grafana-graphite-datasource
+RUN grafana cli plugins install grafana-image-renderer
+#RUN grafana cli plugins install grafana-influxdb-datasource
+#RUN grafana cli plugins install grafana-jaeger-datasource
+#RUN grafana cli plugins install grafana-kubernetes-app
+#RUN grafana cli plugins install grafana-loki-datasource
+#RUN grafana cli plugins install grafana-mysql-datasource
+#RUN grafana cli plugins install grafana-opentsdb-datasource
+RUN grafana cli plugins install grafana-piechart-panel
+RUN grafana cli plugins install grafana-polystat-panel
+#RUN grafana cli plugins install grafana-postgres-datasource
+#RUN grafana cli plugins install grafana-prometheus-datasource
+RUN grafana cli plugins install redis-app
+RUN grafana cli plugins install redis-datasource
+RUN grafana cli plugins install redis-explorer-app
+
+RUN grafana cli plugins install grafana-simple-json-datasource
+#RUN grafana cli plugins install grafana-sqlite-datasource
+#RUN grafana cli plugins install grafana-tempo-datasource
+RUN grafana cli plugins install grafana-worldmap-panel
+#RUN grafana cli plugins install grafana-zipkin-datasource
+
+# Copy provisioning files
+#COPY ./_config/provisioning /etc/grafana/provisionexing

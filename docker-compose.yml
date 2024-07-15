@@ -143,7 +143,10 @@ services:
       - REDIS_PORT=${REDIS_PORT:-6379}
 
   grafana:
-    image: grafana/grafana:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.grafana
+      target: grafana
     container_name: grafana-core
     restart: always
     ports:
@@ -158,6 +161,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./_config/provisioning:/etc/grafana/provisioning
 
   marketstore:
     image: alpacamarkets/marketstore:latest
@@ -172,6 +176,23 @@ services:
     volumes:
       - ./_data/marketstore-data:/data
       - ./_config/mkts.yml:/etc/mkts.yml
+    networks:
+      - core_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-core
+    restart: always
+    volumes:
+      - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    profiles:
+      - core
+    labels:
+      - "profile=core"
     networks:
       - core_network
 
@@ -218,3 +239,4 @@ volumes:
   redis_data:
     driver: local
   grafana_data:
+    driver: local

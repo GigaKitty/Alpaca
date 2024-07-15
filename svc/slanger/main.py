@@ -9,6 +9,7 @@ from alpaca.trading.requests import (
 )
 from flask import Flask, Blueprint, g, request, jsonify, json, render_template
 from utils import position, sec, order, account, calc
+from prometheus_flask_exporter import PrometheusMetrics
 import json
 import math
 import os
@@ -39,6 +40,8 @@ api = TradingClient(
 
 # Initialize the Flask app
 app = Flask(__name__)
+
+metrics = PrometheusMetrics(app, group_by="endpoint")
 
 # Initialize the Blueprint for the orders
 orders = Blueprint("orders", __name__)
@@ -350,6 +353,11 @@ def postprocess(response):
 @app.route("/health", methods=["GET"])
 def health_check():
     return render_template("health.html"), 200
+
+
+@app.route("/metrics")
+def metrics_endpoint():
+    return "Metrics are exposed!"
 
 
 # Add app.route for 404 page

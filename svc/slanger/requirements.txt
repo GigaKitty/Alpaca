@@ -19,7 +19,7 @@ jmespath==1.0.1
 msgpack==1.0.5
 numpy==1.25.2
 pandas==2.1.0
-prometheus-flask-exporter==0.23.0 
+prometheus-flask-exporter==0.23.1
 pydantic==2.6.3
 pydantic_core==2.16.3
 pyngrok==7.1.6
