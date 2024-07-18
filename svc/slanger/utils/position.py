@@ -58,9 +58,9 @@ def opps(data, api):
             # @TODO: errors out with no side....
         )  # make position.side lowercase for comparison with action returns long or short
 
-        if side == "long":
+        if side in ["long", "buy"]:
             action = "sell"
-        elif side == "short":
+        elif side in ["short", "sell"]:
             action = "buy"
         else:
             action = "buy"
@@ -73,7 +73,7 @@ def sp(data, api):
     The logic here is to determine if the signal should be traded or not.
     If we have a posistion then we need to analyze it to determine if we buy more or exit the trade
     If there is no position and the side is the same as the action then trade that we prefer to trade on
-    Otherwise return False because we don't want to trade on a side we're not certain about
+    if
     """
     side = data.get("side")
     action = data.get("action")
@@ -86,8 +86,12 @@ def sp(data, api):
     elif data.get("pos") is False and side == action:
         # No position side == action which means same intention from signal to strategy
         print(
-            f"SMASH OR PASS POS of {ticker} IS False and my side: {side} == action: {action}"
+            f"SMASH OR PASS POS of {ticker} IS {False} and my side: {side} == action: {action}"
         )
+        return True
+    elif side == action:
+        # No position and there's no side then set the g.data["sp"] to True to trade all the things
+        print(f"SMASH OR PASS side: {side} action: {action} ")
         return True
     else:
         print(
@@ -113,7 +117,7 @@ def anal(data, api):
     side = pos.side.lower()
 
     # match naming convention of action
-    if side == "long":
+    if side in ["long", "buy"]:
         side = "buy"
     else:
         side = "sell"
@@ -130,7 +134,7 @@ def anal(data, api):
             f"Skipping {pos.symbol} with action {action} in favor or same side {side} P/L {profit}"
         )
         return False
-    elif profit >= data.get("profit") and side != action:
+    elif profit >= 0 and side != action:
         # if position and there's profit and the action is not the same to side then close and continue
         print(
             f"Closing position {pos.symbol} with action {action} on {side} side P/L {profit}"

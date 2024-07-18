@@ -6,10 +6,10 @@ services:
     container_name: aristocrats-${ENVIRONMENT}
     profiles:
       - dev
-      - main
+      #- main
     labels:
       - "profile=dev"
-      - "profile=main"
+      # - "profile=main"
     networks:
       - core_network
     restart: always
@@ -24,10 +24,10 @@ services:
     container_name: beancleaner-${ENVIRONMENT}
     profiles:
       - dev
-      - main
+      #   - main
     labels:
       - "profile=dev"
-      - "profile=main"
+      # - "profile=main"
     restart: always
     volumes:
       - ./svc/beancleaner/:/app/
@@ -67,6 +67,29 @@ services:
       - /home/captain/.cloudflared/${ENVIRONMENT}:/etc/cloudflared
       #- ./cloudflared:/etc/cloudflared
 
+  #dailychange:
+  #  build:
+  #    args:
+  #      SVC_DIR: ./svc/dailychange
+  #  container_name: dailychange-${ENVIRONMENT}
+  #  profiles:
+  #    - dev
+  #      - main
+  #  labels:
+  #    - "profile=dev"
+  #    - "profile=main"
+  #  restart: always
+  #  volumes:
+  #    - ./svc/dailychange/:/app/
+  #  networks:
+  #    - core_network
+  #  environment:
+  #    - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #    - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #    - ENVIRONMENT=${ENVIRONMENT}
+  #    - REDIS_HOST=${REDIS_HOST:-redis-stack}
+  #    - REDIS_PORT=${REDIS_PORT:-6379}
+
   earnyearn:
     build:
       args:
@@ -74,10 +97,10 @@ services:
     container_name: earnyearn-${ENVIRONMENT}
     profiles:
       - dev
-      - main
+      #  - main
     labels:
       - "profile=dev"
-      - "profile=main"
+      # - "profile=main"
     restart: always
     volumes:
       - ./svc/earnyearn/:/app/

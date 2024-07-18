@@ -46,9 +46,9 @@ def qty(data):
 
 def side(data):
     if data.get("side") is None:
-        return data.get("action")
+        return "buy"
     else:
-        return "long"
+        return data.get("side")
 
 
 def notional(data):

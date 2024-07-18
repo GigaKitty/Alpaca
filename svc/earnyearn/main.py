@@ -1,22 +1,26 @@
 import asyncio
+import datetime
 import finnhub
 import json
 import logging
+import numpy as np
 import os
 import pandas as pd
-import numpy as np
 import pandas_ta as ta
 import pymarketstore as pymkts
+import random
+
+import redis
 import redis.asyncio as aioredis
 import requests
-import datetime
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ########################################
 ### SETUP ENV
 ########################################
-api_key = os.getenv("APCA_API_KEY_ID")
-api_sec = os.getenv("APCA_API_SECRET_KEY")
+# api_key = os.getenv("APCA_API_KEY_ID")
+# api_sec = os.getenv("APCA_API_SECRET_KEY")
 bar_number = 42
 dataframes = {}
 fetch_pause = 60
@@ -28,7 +32,7 @@ attribute_group = "OHLCV"
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
 
 # Auth Message json
-auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+# auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
 trend_cache = {}
 
@@ -38,7 +42,6 @@ pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
 
-import redis
 
 r = redis.Redis(host="redis-stack-core", port=6379)
 print(r.ping())
@@ -108,7 +111,10 @@ async def trend_getter(symbol):
         f"The highest trend for {symbol} is: {highest_trend} with a value of {trends[highest_trend]}"
     )
 
-    await redis.set(f"{symbol}_trend", json.dumps(highest_trend), ex=3600)
+    # This is weird but prevents all from expiring at the same time.
+    expiration_time = random.randint(3600, 7200)
+
+    await redis.set(f"{symbol}_trend", json.dumps(highest_trend), ex=expiration_time)
     logging.info(f"Setting {symbol} with {highest_trend} signal to the earnings list.")
 
     return highest_trend
@@ -122,8 +128,6 @@ async def fetch_earnings_calendar():
     @SEE: https://finnhub.io/docs/api/earnings-calendar
     """
     global earnings
-
-    # Configure your Finnhub API key here
 
     # reset earnings to empty list
     earnings = []
@@ -178,7 +182,7 @@ def send_order(action, symbol, data):
         "interval": "1m",
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
-        "side": "long",
+        # "side": "long",
         "signature": tv_sig,
         "ticker": symbol,
         "trailing": False,
@@ -303,6 +307,7 @@ async def calc_strat(ticker, data, strat):
             send_order("buy", ticker, data)
             last_buy_timestamp[ticker] = current_timestamp
 
+    # @TODO: For sell condition maybe we should check last time and ALSO if sell conditions are later than the buy.
     if sell_condition:
         print("Sell condition met")
         send_order("sell", ticker, data)
