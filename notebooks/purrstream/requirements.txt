@@ -1,0 +1,6 @@
+alpaca-py==0.10.0
+requests==2.31.0
+websockets==10.4
+aiohttp==3.9.5
+redis==5.0.4
+prometheus-client==0.20.0

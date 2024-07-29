@@ -158,7 +158,8 @@ async def fetch_earnings_calendar():
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million in revenue
                 trend = await trend_getter(earning["symbol"])
-                if trend == "strongBuy" or trend == "buy":
+                if trend == "strongBuy":
+                    # if trend == "strongBuy" or trend == "buy":
                     earnings.append(earning["symbol"])
 
     else:
@@ -205,6 +206,7 @@ def send_order(action, symbol, data):
 async def calc_strat(ticker, data, strat):
     """
     Calculates multiple strategies using the ta library
+    @TODO: If websocket goes offline then it's missing those candles in between when the system was offline.
     """
     global last_buy_timestamp
     df = pd.DataFrame(data)

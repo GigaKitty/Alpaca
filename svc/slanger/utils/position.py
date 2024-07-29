@@ -79,6 +79,10 @@ def sp(data, api):
     action = data.get("action")
     ticker = data.get("ticker")
 
+    #if  data.get("qty") == 0 or data.get("notional") == 0:
+    #    print(f"Skipping {ticker} because qty is 0")
+    #    return False
+
     if data.get("pos") is not False:
         # If position need to analyze it and make sure it's on the same side
         print(f"SMASH OR PASS for {ticker} POS is NOT false let's do analyze")

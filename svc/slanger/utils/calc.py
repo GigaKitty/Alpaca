@@ -63,7 +63,7 @@ def notional(data):
         price = round(float(data.get("low")), 1)
         return cash
     else:
-        return 10
+        return 1
 
 
 def trailing(data):

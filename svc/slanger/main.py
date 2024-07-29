@@ -31,7 +31,7 @@ paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
 
 """
 Initialize the Alpaca API
-If it's dev i.e. paper trading then it uses the paper trading API
+If it's dev i.e. japer trading then it uses the paper trading API
 """
 api = TradingClient(
     os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY"), paper=paper
@@ -49,8 +49,6 @@ orders = Blueprint("orders", __name__)
 #######################################################
 #######################################################
 #######################################################
-
-
 @orders.route("/limit", methods=["POST"])
 def limit():
     """
@@ -289,6 +287,8 @@ def preprocess():
     # Hack Time
     api.get_clock()
 
+    #
+
     # Set the global data to the request.json
     g.data = request.json
 
@@ -377,4 +377,4 @@ def log_request_info():
 #######################################################
 if __name__ == "__main__":
     app.register_blueprint(orders)
-    app.run(host="0.0.0.0", port=5000, debug=paper)
+    app.run(host="0.0.0.0", port=5000)

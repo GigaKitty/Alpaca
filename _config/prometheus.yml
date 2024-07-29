@@ -6,6 +6,7 @@ global:
     - OpenMetricsText0.0.1
     - PrometheusText0.0.4
   evaluation_interval: 1m
+
 scrape_configs:
   - job_name: prometheus
     honor_timestamps: true
@@ -24,14 +25,13 @@ scrape_configs:
     static_configs:
       - targets:
           - prometheus:9090
-  #  - job_name: "cloudflared"
-  #    static_configs:
-  #      - targets: ["cloudflared:60123"]
+
   - job_name: "slanger-dev"
     metrics_path: "/metrics"
     static_configs:
-      - targets: ["dev.haxor.space"]
+      - targets: ${SLANGER_DEV}
+
   - job_name: "slanger-main"
     metrics_path: "/metrics"
     static_configs:
-      - targets: ["main.haxor.space"]
+      - targets: ${SLANGER_MAIN}

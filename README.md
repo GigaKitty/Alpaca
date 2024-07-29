@@ -18,20 +18,22 @@ The project consists of a single application "Alpaca" that make up the project.
 
 AWS copilot services are broken down into microservice architecture having each it's own responsibility. The services are as follows:
 
-### svc Requirements
+### svc guidelines
 
-- Must be instantly deployable and usable
+- Instantly deployable and usable all three envs
   - local using `docker-compose.yml`
   - GitHub codespaces
   - AWS copilot (ECS)
-- Must run without intervention from trader
-- Must have clear documentation or at least clean code to understand implementation
+- Run without intervention from trader once it's going it doesn't stop or need kicked
+- Have clear documentation or at least clean code to understand implementation
+- Simple micro service single use
+- Minimal dependencies
 
 🟣 Idea
 🟡 WIP
 🟢 Production
 
-### 🟣 beancleaner
+### 🟢 beancleaner
 
 A cleanup service that will periodically clean up trades based on a pre-determined price and time criteria.
 For instance:
@@ -43,35 +45,19 @@ For instance:
 
 Automatic earnings report bot that consumes realtime bar data on earnings tickers upcoming or passed to process algos on. When an algo triggers it sends an order request to a webhook bot.
 
-### 🟣 havocharvester
-
-Bot which monitors news and sentiment which is negative or specifically related to havoc, natural disaster, catastrophe, weather, war etc. It then makes a prediction based on this data and it's volume to buy or sell relatable assets.
-
-### 🟣 pacapredictor
-
-A service that uses a machine learning model to predict the price of a stock. The model is trained on historical data and uses a LSTM neural network to make predictions. The service is used to predict the price of a stock at a given time and is used to make trading decisions.
-
-### 🟣 queuecria
-
-A service that listens to a queue and executes worker tasks. It is used to execute tasks that are triggered by a schedule or by a queue. It's used for common tasks like cron jobs or background tasks and is used as a worker service to execute tasks. Centralized queueing service to assist in processing large amounts of requests in an asynchronous fashion.
-
-### 🟣 redditspreadit
-
-Specifically browses reddit for sentiment analysis. Scans reddit and performs a simple sentiment scoring to buy/sell assets.
-
-### 🟣 scalapaca
-
-Service that produces HFTesque scalp trades.
-
-### 🟡 sentimentsheperd
-
-Uses chatgpt to analyze sentiment of news articles and social media posts. These are fed via websockets to deliver realtime data for the bot to score and ultimately make trading decisions based on the feeds coming in.
-
 ### 🟢 slanger
 
 TradingView webhook processing service. This service listens for webhooks from TradingView and executes orders based on the payload. Different strategies and order types can be used to execute orders on different endpoints.
 
 ## Deploying
+
+Local:
+```docker-compose up -d```
+
+AWS:
+```copilot jkqsvc```
+
+Codespaces:
 
 ### Prerequisites
 
