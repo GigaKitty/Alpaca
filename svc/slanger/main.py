@@ -15,7 +15,8 @@ import math
 import os
 
 # import threading
-# import asyncio
+import asyncio
+
 # import random
 # import requests
 # import string
@@ -55,6 +56,7 @@ def limit():
     Places a limit order based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
+    print(g.data)
     if g.data.get("sp") is True:
         limit_price = round(calc.limit_price(g.data), 2)
         try:
@@ -128,6 +130,8 @@ def trailing():
     @SEE: https://docs.alpaca.markets/v1.1/docs/working-with-orders#submitting-trailing-stop-orders
     """
     print(f"setting up trailing stop order")
+    print(g.data)
+    return jsonify({"message": "trailing is there and firing"}), 200
     max_attempts = 10
     for attempt in range(max_attempts):
         if attempt > max_attempts:
@@ -336,14 +340,24 @@ def preprocess():
 # Add an orders after_request to handle postprocessing
 @orders.after_request
 def postprocess(response):
+    # if order was a sell order then calculate total profit of trades and print to console
+    # if hasattr(g, "data") and g.data.get("action") == "sell":
+    #    print(f"Total profit: {calc.calculate_profit(g.data, api)}")
+
     # @TODO: this needs to spawn async trailing orders after each market order has been filled
     if (
         hasattr(g, "data")
         and response.status_code == 200
         and g.data.get("trailing") is True
     ):
-        print("trailing stop order")
-        # trailing()
+        # threading.Thread(target=trailing).start()
+        # asyncio.run(trailing())
+        # Run the trailing function as an asynchronous task
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(trailing())
+        else:
+            loop.run_until_complete(trailing())
 
     return response
 

@@ -111,3 +111,23 @@ def risk(data):
         return float(data.get("risk"))
     else:
         return 0.01
+
+
+def calculate_profit(data, api):
+    symbol = data.get("symbol")
+    orders = api.get_orders(symbols=[symbol])
+   
+    total_buy_cost = 0
+    total_buy_quantity = 0
+    total_sell_revenue = 0
+    total_sell_quantity = 0
+    
+    for order in orders:
+        if order.side == OrderSide.BUY and order.status == OrderStatus.FILLED:
+            total_buy_cost += float(order.filled_avg_price) * float(order.filled_qty)
+            total_buy_quantity += float(order.filled_qty)
+        elif order.side == OrderSide.SELL and order.status == OrderStatus.FILLED:
+            total_sell_revenue += float(order.filled_avg_price) * float(order.filled_qty)
+            total_sell_quantity += float(order.filled_qty)
+
+    return total_sell_revenue - total_buy_cost

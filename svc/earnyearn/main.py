@@ -14,6 +14,9 @@ import redis
 import redis.asyncio as aioredis
 import requests
 
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ########################################
@@ -33,6 +36,10 @@ tv_sig = os.getenv("TRADINGVIEW_SECRET")
 
 # Auth Message json
 # auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+
+client = StockHistoricalDataClient(
+    os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY")
+)
 
 trend_cache = {}
 
@@ -73,6 +80,7 @@ cooldown_period = 25  # Number of bars to wait before allowing another buy
 
 async def publish_list(list_name, message):
     try:
+        await redis.delete(list_name)
         await redis.lpush(list_name, message)
         print(f"Published message: {message} to list: {list_name}")
     except aioredis.exceptions.TimeoutError:
@@ -167,6 +175,7 @@ async def fetch_earnings_calendar():
 
     print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
     await publish_list("earnings_list", json.dumps(earnings))
+    # await get_candles(earnings)
 
 
 def send_order(action, symbol, data):
@@ -178,7 +187,7 @@ def send_order(action, symbol, data):
     data = {
         "action": action,
         "close": data["Close"].iloc[-1],
-        "comment": "macd-earnyearn",
+        "comment": "macd-rsi-bb-earnyearn",
         "high": data["High"].iloc[-1],
         "interval": "1m",
         "low": data["Low"].iloc[-1],
@@ -203,7 +212,7 @@ def send_order(action, symbol, data):
         print(f"HTTP Error encountered: {response}")
 
 
-async def calc_strat(ticker, data, strat):
+async def calc_strat(ticker, data):
     """
     Calculates multiple strategies using the ta library
     @TODO: If websocket goes offline then it's missing those candles in between when the system was offline.
@@ -394,6 +403,28 @@ async def read_data_from_marketstore(data):
         return None
 
 
+async def get_candles(symbols):
+    """
+    Fetches the candles for a given symbol from Alpaca API
+    """
+    for symbol in symbols:
+        print(f"Fetching candles for {symbol}")
+
+        # Define the request parameters
+        request_params = StockBarsRequest(
+            symbol_or_symbols=symbol, timeframe=TimeFrame.Minute, limit=200
+        )
+        # Query Alpaca API for candle data
+        try:
+            logging.info(f"Querying Alpaca API for {symbol}")
+            bars = client.get_stock_bars(request_params).df
+            if bars.empty:
+                logging.error("Alpaca API query returned no results.")
+            await calc_strat(symbol, bars)
+        except Exception as e:
+            logging.error(f"Error querying Alpaca API: {e}")
+
+
 async def process_message(redis, message):
     """
     Process the message if it meets the filtering criteria and log to Redis.
@@ -409,11 +440,10 @@ async def process_message(redis, message):
         ticker = item.get("S")
         if ticker:
             print(f"Processing message for {ticker}: {item}")
-            # Log message to Redis list
             await redis.lpush(f"logs:{ticker}", json.dumps(item))
             await store_in_marketstore(item)
             market_data = await read_data_from_marketstore(item)
-            await calc_strat(ticker, market_data, "macd")
+            await calc_strat(ticker, market_data)
 
         else:
             print(f"Skipping message: {item}")
@@ -442,6 +472,7 @@ async def main():
     scheduler = AsyncIOScheduler()
     scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
     await asyncio.gather(redis_listener(), scheduler_task(scheduler))
+    # await asyncio.gather(scheduler_task(scheduler))
 
 
 if __name__ == "__main__":

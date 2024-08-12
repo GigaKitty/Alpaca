@@ -79,7 +79,7 @@ def sp(data, api):
     action = data.get("action")
     ticker = data.get("ticker")
 
-    #if  data.get("qty") == 0 or data.get("notional") == 0:
+    # if  data.get("qty") == 0 or data.get("notional") == 0:
     #    print(f"Skipping {ticker} because qty is 0")
     #    return False
 
@@ -117,6 +117,9 @@ def anal(data, api):
     pos = data.get("pos")
     profit = data.get("profit")
 
+    print(pos)
+    print(profit)
+    print(action)
     # make position.side lowercase for comparison with action returns long or short
     side = pos.side.lower()
 

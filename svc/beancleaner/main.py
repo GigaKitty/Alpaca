@@ -74,9 +74,10 @@ async def clean_the_bean():
     logging.info(f"Found {len(positions)} positions")
     earnings_list = await get_earnings_list()
     logging.info(f"Found {len(earnings_list)} earnings")
-
+    
+    # us_equity only keep stocks and omit options
     remaining_positions = [
-        position for position in positions if position.symbol not in earnings_list
+        position for position in positions if position.symbol not in earnings_list and position.asset_class == "us_equity"
     ]
 
     for position in remaining_positions:
@@ -129,7 +130,6 @@ if __name__ == "__main__":
     """
     Initialize the bean cleaner service
     """
-
     async def run_tasks():
         await main()
 

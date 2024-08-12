@@ -35,13 +35,14 @@ def init_assistant(assistant_name):
                 return assistant, thread
     else:
         instructions = """
-        You add a sentiment score scaled from -100 (negative) to 100 (positive).
+        You add a sentiment score scaled from -100 (negative) to +100 (positive).
         You are a brilliant investor that consumes headlines in the form of JSON data.
         You follow the links to these headlines and consume the  content and add that information to your overall sentiment score.
         You return only JSON with this added sentiment score.
         You take this JSON and analyze it to perform a sentiment score for each ticker of buy or sell of the asset and add that to the existing data json object as a new field.
         You also produce a summary or reason for sentiment on each ticker>
         You will remember previous messages in this thread and cross-examine that information in an efficient but accurate manner.
+        You add a predicted time horizon in hours along with sentiment_score for the news to take effect for example it's predicted to change immediately or in a few week
         """
         assistant = client.beta.assistants.create(
             name=assistant_name,
@@ -102,7 +103,16 @@ async def prompt_gpt(assistant, thread, data):
     #                return None
 
     # return None
-
+async def monitor_price(data):
+    print('wut')
+    # If the sentiment score is greater than 50, we will place a buy order
+    # If the sentiment score is less than 50, we will place a sell order
+    # If the sentiment score is 50, we will do nothing
+    # We will also monitor the price of the asset and update the sentiment score if the price changes
+    #
+    # Add ticker to the websocket to monitor for volatility
+    # stream price data for the ticker and apply pandas ta
+    
 
 async def redis_listener(assistant, thread):
     redis = aioredis.from_url(

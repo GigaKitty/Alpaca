@@ -28,10 +28,14 @@ scrape_configs:
 
   - job_name: "slanger-dev"
     metrics_path: "/metrics"
+    scheme: https
     static_configs:
-      - targets: ${SLANGER_DEV}
+      - targets:
+        - "dev.haxor.space"
 
   - job_name: "slanger-main"
     metrics_path: "/metrics"
+    scheme: https
     static_configs:
-      - targets: ${SLANGER_MAIN}
+      - targets: 
+        - "main.haxor.space"

@@ -64,7 +64,7 @@ services:
       - CLOUDFLARED_TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
       - CREDENTIALS_FILE=/etc/cloudflared/tunnelid.json
     volumes:
-      - /home/captain/.cloudflared/${ENVIRONMENT}:/etc/cloudflared
+      - /home/captain/.cloudflared/alpaca-${ENVIRONMENT}:/etc/cloudflared
       #- ./cloudflared:/etc/cloudflared
 
   #dailychange:
@@ -115,6 +115,28 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+
+  sentimentsheperd:
+    build:
+      args:
+        SVC_DIR: ./svc/sentimentsheperd
+    restart: always
+    container_name: sentimentsheperd-${ENVIRONMENT}
+    profiles:
+      - dev
+    labels:
+      - "profile=dev"
+    volumes:
+      - ./svc/sentimentsheperd/:/app/
+    depends_on:
+      - cloudflared
+    networks:
+      - core_network
+    environment:
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
 
   slanger:
     build:

@@ -1,4 +1,4 @@
-Earnyearn is a websocket monitoring script that checks for MACD on earnings stocks and sends a request to buy or sell to the Alpaca API.
+Earnyearn is a websocket monitoring script that checks for MACD, RSI, and BB on earnings stocks and sends a request to buy or sell to the Alpaca API. For the TA indicators there must be two matching instances within the set time period to execute an order
 
 Flow of earnyearn:
 
