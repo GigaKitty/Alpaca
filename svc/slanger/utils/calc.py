@@ -101,8 +101,9 @@ def stop_price(data):
 
 def limit_price(data):
     # limit price is price * 0.98 or similar
-    price = round(float(data.get("low")), 2)
-    return round(float(price * 0.98))
+    price = round(float(data.get("low")), 2) 
+    limit_low = round(price * float(data.get("limit_low", 0.999), 2), 2)
+    return limit_low
 
 
 def risk(data):
@@ -115,7 +116,7 @@ def risk(data):
 
 def calculate_profit(data, api):
     symbol = data.get("symbol")
-    orders = api.get_orders(symbols=[symbol])
+    orders = api.get_orders(symbol=[symbol])
    
     total_buy_cost = 0
     total_buy_quantity = 0

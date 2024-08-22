@@ -56,16 +56,14 @@ def limit():
     Places a limit order based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
-    print(g.data)
     if g.data.get("sp") is True:
-        limit_price = round(calc.limit_price(g.data), 2)
         try:
             limit_order_data = LimitOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=g.data.get("qty"),
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.DAY,
-                limit_price=limit_price,
+                limit_price=g.data.get("limit_price"),
                 after_hours=g.data.get("after_hours"),
                 client_order_id=g.data.get("order_id"),
             )
@@ -289,10 +287,10 @@ def preprocess():
     Keep it fast and simple......
     """
     # Hack Time
-    api.get_clock()
-
-    #
-
+    clock = api.get_clock()
+    if clock.is_open == False and request.endpoint != 'orders.crypto':
+        return jsonify({"Market Closed": "Market is closed"}), 400
+    
     # Set the global data to the request.json
     g.data = request.json
 
@@ -309,6 +307,7 @@ def preprocess():
     # Calc
     # @NOTE: qty depends on risk so we calculate risk first
     g.data["action"] = g.data.get("action", "buy")
+    g.data["limit_price"] = round(calc.limit_price(g.data), 2)
     g.data["risk"] = g.data.get("risk", calc.risk(g.data))
     g.data["notional"] = g.data.get("notional", calc.notional(g.data))
     g.data["profit"] = g.data.get("profit", calc.profit(g.data))
@@ -316,7 +315,7 @@ def preprocess():
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
     g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))
-
+    
     # Order
     g.data["order_id"] = order.gen_id(g.data, 10)
 
@@ -354,6 +353,10 @@ def postprocess(response):
         # asyncio.run(trailing())
         # Run the trailing function as an asynchronous task
         loop = asyncio.get_event_loop()
+        print("postprocess start")
+        print(g.data)
+        print(g.data.get("trailing"))
+        print("postprocess end")
         if loop.is_running():
             asyncio.create_task(trailing())
         else:

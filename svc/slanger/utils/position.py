@@ -117,9 +117,6 @@ def anal(data, api):
     pos = data.get("pos")
     profit = data.get("profit")
 
-    print(pos)
-    print(profit)
-    print(action)
     # make position.side lowercase for comparison with action returns long or short
     side = pos.side.lower()
 
