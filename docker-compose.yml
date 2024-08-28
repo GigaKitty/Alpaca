@@ -24,10 +24,10 @@ services:
     container_name: beancleaner-${ENVIRONMENT}
     profiles:
       - dev
-      #   - main
+      #- main
     labels:
       - "profile=dev"
-      # - "profile=main"
+     #- "profile=main"
     restart: always
     volumes:
       - ./svc/beancleaner/:/app/

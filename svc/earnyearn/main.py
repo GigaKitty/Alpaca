@@ -166,7 +166,7 @@ async def fetch_earnings_calendar():
                 and earning["revenueEstimate"] >= 2.5e8
             ):  # Filter out low volume stocks 2.5e8 is basically 250million in revenue
                 trend = await trend_getter(earning["symbol"])
-                if trend == "strongBuy":
+                if trend == "strongBuy" or trend == "buy":
                     # if trend == "strongBuy" or trend == "buy":
                     earnings.append(earning["symbol"])
 
@@ -193,6 +193,7 @@ def send_order(action, symbol, data):
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
         # "side": "long",
+        "risk": os.getenv("RISK", 0.0001),
         "signature": tv_sig,
         "ticker": symbol,
         "trailing": False,

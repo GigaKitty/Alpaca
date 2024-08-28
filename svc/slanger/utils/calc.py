@@ -1,3 +1,4 @@
+from config import app, api
 """
 Calc class & functions are essentially trading rules that are used to calculate the values for the order
 Use the data object to get the values from the webhook and return the calculated value
@@ -6,8 +7,8 @@ Use the data object to get the values from the webhook and return the calculated
 
 def profit(data):
     pos = data.get("pos")
-    if pos is not False:
-        print(f"PROFIT: {pos.unrealized_pl}")
+    if pos is not False and pos is not None:
+        app.logger.debug(f"PROFIT: {pos.unrealized_pl}")
         return float(pos.unrealized_pl)
     else:
         return False
@@ -18,7 +19,7 @@ def get_current_price(data, api):
     # Get the current bar data for the ticker
     barset = api.get_barset(data.get("symbol"), "minute", limit=1)
     bar = barset[ticker][0]
-    print(
+    app.loggerdebug(
         f"Time: {bar.t}, Open: {bar.o}, High: {bar.h}, Low: {bar.l}, Close: {bar.c}, Volume: {bar.v}"
     )
     return bar.c
@@ -31,11 +32,16 @@ def qty(data):
     Additional logic can be added to calculate the qty based on the risk value, percentage of portfolio, equal dollar investment, market cap weighting, risk mananagement, growth potential, sector allocation, etc.
     """
     cash = float(data["acc"].cash)
-
+    
     if cash > 0:
         cash = round(cash * data["risk"])
         # @TODO: change to high low close dynamic based on side.
-        price = round(float(data.get("low")), 1)
+        if data.get("side") == "buy":
+            price = round(float(data.get("low")), 1)
+        elif data.get("side") == "sell":
+            price = round(float(data.get("high")), 1)
+        else:
+            price = round(float(data.get("open")), 1)
 
         qty = round(cash / price)
     else:
@@ -44,9 +50,16 @@ def qty(data):
     return qty
 
 
+
 def side(data):
+    """
+    if empty its a buy order
+    if side is both then it's a sell||buy order so we need to determine the action
+    else return the side"""
     if data.get("side") is None:
         return "buy"
+    elif data.get("side") == "both":
+        return data.get("action")
     else:
         return data.get("side")
 
@@ -98,16 +111,22 @@ def stop_price(data):
     price = round(float(data.get("low")), 2)
     return round(float(price * 0.99))
 
+def stop_limit_price(data):
+    # stop price is price * 0.98 or similar
+    price = round(float(data.get("low")), 2)
+    return round(float(price * 0.99))
+
 
 def limit_price(data):
     # limit price is price * 0.98 or similar
-    price = round(float(data.get("low")), 2) 
-    limit_low = round(price * float(data.get("limit_low", 0.999), 2), 2)
-    return limit_low
+    low = round(float(data.get("low")), 10) 
+    app.logger.debug(f"low: {low}")
+    limit_price = round(low * data.get("limit_price", 0.98), 10)
+    app.logger.debug(f"Limit Price: {limit_price}")
+    return limit_price
 
 
 def risk(data):
-
     if data.get("risk"):
         return float(data.get("risk"))
     else:

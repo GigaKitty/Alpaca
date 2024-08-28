@@ -2,7 +2,6 @@ from flask import redirect, render_template, Flask, request, abort
 import os
 import ssl
 
-
 # Validates the signature from TradingView
 # @TODO: This should be updated to check SSL and/or IP so we can remove signature from the webhook
 def validate_signature(data):
@@ -65,3 +64,13 @@ def validate_certificate():
     data = request.json
     # Handle the webhook data as needed
     return "Webhook received", 200
+
+
+def sanitize_data(data):
+    sanitized = {}
+    for key, value in data.items():
+        if key.lower() in os.getenv("SENSITIVE_KEYS", "").split(","):
+            sanitized[key] = '***REDACTED***'
+        else:
+            sanitized[key] = value
+    return sanitized
