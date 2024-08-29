@@ -40,34 +40,52 @@ triggers:
         - 15Min
         - 1H
         - 1D
+
   - module: stream.so
     on: "*/*/*"
     config:
       filter: nasdaq
-#
-# ----------------------------------------
-# Example background worker modules
-# Un-comment to enable.
-# ----------------------------------------
-#
-# bgworkers:
-#   - module: gdaxfeeder.so
-#     name: GdaxFetcher
-#     config:
-#       query_start: "2017-09-01 00:00"
-#   - module: polygon.so
-#         name: Polygon
-#         config:
-#             api_key: your_api_key
-#             base_url: https://api.polygon.io
-#             symbols:
-#                 - AAPL
-#                 - SPY
-#   - module: bitmexfeeder.so
-#     name: BitmexFeeder
-#     config:
-#       query_start: "2017-01-01 00:00"
-#       symbols:
-#         - .XBT
-#       base_timeframe: "5Min"
 
+bgworkers:
+  - module: gdaxfeeder.so
+    config:
+      query_start: '2018-01-01 00:00'
+      symbols:
+        - BTC-USD
+        - ETH-USD
+        - LTC-USD
+        - BCH-USD
+        - ZRX-USD
+        - ETC-USD
+        - BAT-USD
+      base_timeframe: '1Min'
+  - module: polygon.so
+    config:
+      api_key: ${API_KEY}
+      ws_servers: wss://alpaca.socket.polygon.io
+      data_types: ["bars"]
+      symbols:
+        - SPY
+        - QQQ
+        - TQQQ
+        - SQQQ
+        - AAPL
+        - MSFT
+        - AMZN
+        - NVDA
+        - TSLA
+        - GOOGL
+        - META
+        - NFLX
+        - INTC
+        - AMD
+        - ARM
+        - BABA
+        - BIDU
+        - BILI
+        - BNTX
+        - BYND
+        - CSCO
+        - DDOG
+        - DOCU
+        

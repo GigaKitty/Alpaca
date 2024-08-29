@@ -1,3 +1,4 @@
+from config import app
 ############################################################
 # Gets account information
 def get_account(data, api):
@@ -17,7 +18,7 @@ def get_account(data, api):
 def get_cash(data, api):
     account = api.get_account()
     cash = account.cash
-    print(cash)
+    app.logger.debug("Cash: %s", cash)
 
     if cash > 0:
         return cash

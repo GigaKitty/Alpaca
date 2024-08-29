@@ -40,8 +40,12 @@ async def update_earnings_list_periodically(update_interval, websocket):
                 "statuses": ["*"],
             }
         )
-        await websocket.send_str(subscription_message)
-        await asyncio.sleep(update_interval)
+        try:
+            await websocket.send_str(subscription_message)
+            await asyncio.sleep(update_interval)
+        except ConnectionResetError:
+            # Reconnect logic here
+            websocket = await connect_to_websocket()
 
 
 async def get_earnings_list():
@@ -238,11 +242,11 @@ async def crypto_socket():
 
 async def main():
     # commented out until I can get the premium again or have a crypto strategy
-    # crypto_task = crypto_socket()
+    crypto_task = crypto_socket()
     news_task = news_socket()
     stocks_task = stocks_socket()
 
-    await asyncio.gather(news_task, stocks_task)
+    await asyncio.gather(crypto_task, news_task, stocks_task)
 
 
 if __name__ == "__main__":

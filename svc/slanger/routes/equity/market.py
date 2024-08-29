@@ -12,7 +12,6 @@ def order():
     Places a simple market order or BUY or SELL based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
-    
     if g.data.get("sp") is True:
         try:
             order_data = MarketOrderRequest(

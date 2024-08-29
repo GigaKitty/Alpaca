@@ -12,11 +12,23 @@ def order():
     Places a simple market order or BUY or SELL based on TradingView WebHook
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
     """
+    # if there's a position and side is equal to action
+    if g.data.get("pos") is not False and g.data.get("side") == g.data.get("action"):
+        # buy more
+        # quantity equals quantity
+        quantity = g.data.get("qty")
+    elif g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
+        # reverse position
+        quantity = g.data.get("quantity_available") * 2
+    else: 
+        quantity = g.data.get("qty")
+
+
     if g.data.get("sp") is True:
         try:
             order_data = MarketOrderRequest(
                 symbol=g.data.get("ticker"),
-                qty=g.data.get("qty"),
+                qty=quantity,
                 side=g.data.get("action"),
                 time_in_force=TimeInForce.IOC,
                 after_hours=g.data.get("after_hours"),

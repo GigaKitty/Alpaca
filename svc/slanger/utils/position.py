@@ -24,23 +24,6 @@ def get_current_price(data, api):
         return float(pos.current_price)
 
 
-def qty_available(data, api):
-    """
-    Check the available quantity of shares to place an order on
-    """
-    qty_available = data.get("qty")
-    
-    if get_position(data, api) is not False:
-        try:
-            pos = get_position(data, api)
-            qty_available = pos.qty_available
-        except ValueError:
-            # Handle the case where the string does not represent a number
-            app.logger.error(f"Error: is not a valid number.")
-            return None
-
-    return qty_available
-
 
 def opps(data, api):
     """
@@ -109,6 +92,8 @@ def anal(data, api):
     # make position.side lowercase for comparison with action returns long or short
     side = pos.side.lower()
 
+    app.logger.debug(f"Position: {pos.symbol} Profit: {profit} Profit Margin: {profit_margin} Side: {side} Action: {action}")
+    app.logger.debug(request.endpoint)
     # match naming convention of action
     if side in ["long", "buy"]:
         side = "buy"
@@ -121,14 +106,14 @@ def anal(data, api):
     elif profit <= profit_margin and side != action:
         app.logger.debug(f"Skipping {pos.symbol} with action {action} in favor or same side {side} P/L {profit} return False")
         return False
-    elif profit >= profit_margin and side != action:
+    elif profit >= profit_margin and side != action and not request.endpoint.startswith("equity_bracket"):
         app.logger.debug(f"Closing position {pos.symbol} with action {action} on {side} side P/L {profit} return True")
         api.close_position(pos.symbol)
         app.logger.debug(f"Closed all position(s) for {pos.symbol}")
         response_data = {"message": f"Closed position {pos.symbol} due to profit and action mismatch"}
-        return True
+        return False
         #return jsonify(response_data), 200
     else:
         # all else return true
-        app.logger.debug(f"There is no position and no profit and side does not equal action return True")
+        app.logger.debug(f"There is no position and no profit place trade in either direction return True")
         return True

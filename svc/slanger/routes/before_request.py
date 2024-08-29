@@ -2,7 +2,7 @@ from config import app, api
 from flask import request, jsonify, g
 from utils import sec, account, position, calc, order
 
-SKIP_ENDPOINTS = ['metrics_endpoint', 'health_check']
+SKIP_ENDPOINTS = ['metrics_endpoint', 'health_check', 'health_check_liveness', 'health_check_readiness', 'health_check_startup']
 
 @app.before_request
 def preprocess():
@@ -17,11 +17,14 @@ def preprocess():
     app.logger.debug("Headers: %s", request.headers)
     app.logger.debug("Body: %s", request.get_data())
 
+    # Skip endpoints in the list
     if request.endpoint in SKIP_ENDPOINTS:
         return
     
     # Hack Time
     clock = api.get_clock()
+
+    # Reject after hours orders
     if not clock.is_open and not request.endpoint.startswith('crypto'):
         return jsonify({"Market Closed": "Market is closed"}), 400
     
@@ -32,10 +35,10 @@ def preprocess():
     if sec.validate_signature(g.data) != True:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
-    # Account
+    # Setup account details
     g.data["acc"] = account.get_account(g.data, api)
 
-    # Position
+    # Get current position for symbol
     g.data["pos"] = position.get_position(g.data, api)
 
     # @NOTE: qty and notional depend on risk so we calculate risk first
@@ -45,6 +48,7 @@ def preprocess():
     g.data["notional"] = g.data.get("notional", calc.notional(g.data))
     g.data["profit"] = g.data.get("profit", calc.profit(g.data)) 
     g.data["qty"] = g.data.get("qty", calc.qty(g.data))
+    g.data["qty_available"] = g.data.get("qty_available", calc.qty_available(g.data, api))
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
     g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))

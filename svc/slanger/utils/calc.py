@@ -1,4 +1,5 @@
 from config import app, api
+from utils import position
 """
 Calc class & functions are essentially trading rules that are used to calculate the values for the order
 Use the data object to get the values from the webhook and return the calculated value
@@ -48,6 +49,24 @@ def qty(data):
         qty = 1
 
     return qty
+
+
+def qty_available(data, api):
+    """
+    Check the available quantity of shares to place an order on
+    """
+    qty_available = data.get("qty")
+    
+    if position.get_position(data, api) is not False:
+        try:
+            pos = position.get_position(data, api)
+            qty_available = pos.qty_available
+        except ValueError:
+            # Handle the case where the string does not represent a number
+            app.logger.error(f"Error: is not a valid number.")
+            return None
+
+    return qty_available
 
 
 
@@ -102,22 +121,34 @@ def trail_percent(data):
 def profit_limit_price(data):
     # limit price is price * 0.98 or similar
     # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
-    price = round(float(data.get("low")), 2)
+    price = round(float(data.get("high")), 2)
     return price * 1.01
 
 
 def stop_price(data):
-    # stop price is price * 0.98 or similar
+    """
+    stop price is price * 0.98 or similar
+    price is the low price of the current bar
+
+    """
     price = round(float(data.get("low")), 2)
     return round(float(price * 0.99))
 
+
 def stop_limit_price(data):
-    # stop price is price * 0.98 or similar
-    price = round(float(data.get("low")), 2)
-    return round(float(price * 0.99))
+    """
+    stop price is price * 0.98 or similar
+    price is the open price of the current
+    """
+    price = round(float(data.get("open")), 2)
+    return round(float(price * 0.98))
 
 
 def limit_price(data):
+    """
+    Limit price is price * 0.98 or similar
+    limit price is the low price of the current bar
+    """
     # limit price is price * 0.98 or similar
     low = round(float(data.get("low")), 10) 
     app.logger.debug(f"low: {low}")
