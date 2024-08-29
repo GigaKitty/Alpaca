@@ -5,32 +5,16 @@ log_level: info
 stop_grace_period: 0
 wal_rotate_interval: 5
 stale_threshold: 5
-#triggers:
-#  - module: ondiskagg.so
-#    on: */1Min/OHLCV
-#    config:
-#        filter: "nasdaq"
-#        destinations:
-#            - 5Min
-#            - 15Min
-#            - 1H
-#            - 1D
-#
+
 root_directory: data                # root directory of the database
-# listen_host: "localhost"          # listen host for database server (optional)
 listen_port: 5993                   # port exposed by the database server for JSON-RPC API
 grpc_listen_port: 5995              # port exposed by the database server for GRPC API
-log_level: info                     # log level (info|warn|error)
+log_level: info
 stop_grace_period: 0
 wal_rotate_interval: 5
-# timezone: "America/New_York"      # timezone to use for timestamps (default UTC)
-# utilities_url: "localhost:5994"   # enable debugging pprof and heartbeat endpoints
+timezone: "UTC"
+utilities_url: "localhost:5994"
 
-# ----------------------------------------
-# Example trigger modules
-# Un-comment to enable.
-# ----------------------------------------
-#
 triggers:
   - module: ondiskagg.so
     on: "*/1Min/OHLCV"
@@ -49,6 +33,7 @@ triggers:
 bgworkers:
   - module: gdaxfeeder.so
     config:
+      base_timeframe: '1Min'
       query_start: '2018-01-01 00:00'
       symbols:
         - BTC-USD
@@ -58,34 +43,3 @@ bgworkers:
         - ZRX-USD
         - ETC-USD
         - BAT-USD
-      base_timeframe: '1Min'
-  - module: polygon.so
-    config:
-      api_key: ${API_KEY}
-      ws_servers: wss://alpaca.socket.polygon.io
-      data_types: ["bars"]
-      symbols:
-        - SPY
-        - QQQ
-        - TQQQ
-        - SQQQ
-        - AAPL
-        - MSFT
-        - AMZN
-        - NVDA
-        - TSLA
-        - GOOGL
-        - META
-        - NFLX
-        - INTC
-        - AMD
-        - ARM
-        - BABA
-        - BIDU
-        - BILI
-        - BNTX
-        - BYND
-        - CSCO
-        - DDOG
-        - DOCU
-        

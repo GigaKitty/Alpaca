@@ -193,7 +193,7 @@ def send_order(action, symbol, data):
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
         # "side": "long",
-        "risk": os.getenv("RISK", 0.0001),
+        "risk": os.getenv("EARNYEARN_RISK", 0.0001),
         "signature": tv_sig,
         "ticker": symbol,
         "trailing": False,

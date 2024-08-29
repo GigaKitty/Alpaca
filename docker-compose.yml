@@ -52,6 +52,9 @@ services:
       - "profile=dev"
       - "profile=main"
     restart: always
+    # sysctls:
+    #   - net.core.rmem_max=2500000
+    #   - net.core.wmem_max=2500000
     command: >
       tunnel --config /etc/cloudflared/config.yml --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
     #entrypoint: ["/bin/sh", "-c", "envsubst < /etc/cloudflared/config.yml.template > /etc/cloudflared/config.yml && cloudflared tunnel --config /etc/cloudflared/config.yml run"]
@@ -97,10 +100,10 @@ services:
     container_name: earnyearn-${ENVIRONMENT}
     profiles:
       - dev
-      #  - main
+      - main
     labels:
       - "profile=dev"
-      # - "profile=main"
+      - "profile=main"
     restart: always
     volumes:
       - ./svc/earnyearn/:/app/
@@ -216,6 +219,8 @@ services:
     restart: always
     ports:
       - ${MARKETSTORE_PORT:-5993}:5993
+      - ${MARKETSTORE_DEBUG_PORT:-5994}:5994
+      - ${MARKETSTORE_GPRC_PORT:-5995}:5995
     profiles:
       - core
     labels:
