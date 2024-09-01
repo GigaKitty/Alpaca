@@ -1,5 +1,6 @@
 from flask import request, jsonify
 from config import api, app
+import time
 
 ############################################################
 # Gets currently open position for ticker
@@ -16,13 +17,23 @@ def get_position(data, api) -> bool:
             return position
     except Exception as e:
         return False
-    
+
+def wait_position_close(data, api, timeout=60, check_interval=1):
+    """
+    Waits for the position to close
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+     if get_position(data, api):
+            return True
+     time.sleep(check_interval)
+    return False
+
 
 def get_current_price(data, api):
     pos = get_position(data, api)
     if pos is not False:
         return float(pos.current_price)
-
 
 
 def opps(data, api):
@@ -60,6 +71,9 @@ def sp(data, api):
     action = data.get("action")
     ticker = data.get("ticker")
 
+    if request.endpoint.startswith("equity_reverse"):
+        app.logger.debug(f"SP for {ticker} on equity_reverse endpoint")
+        return True
     if data.get("pos") is not False:
         app.logger.debug("Position: %s", data.get("pos"))
         return anal(data, api)

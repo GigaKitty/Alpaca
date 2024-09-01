@@ -56,7 +56,6 @@ def qty_available(data, api):
     Check the available quantity of shares to place an order on
     """
     qty_available = data.get("qty")
-    
     if position.get_position(data, api) is not False:
         try:
             pos = position.get_position(data, api)
@@ -65,7 +64,7 @@ def qty_available(data, api):
             # Handle the case where the string does not represent a number
             app.logger.error(f"Error: is not a valid number.")
             return None
-
+    app.logger.debug(f"Quantity Available: {qty_available}")
     return qty_available
 
 
@@ -75,10 +74,13 @@ def side(data):
     if empty its a buy order
     if side is both then it's a sell||buy order so we need to determine the action
     else return the side"""
-    if data.get("side") is None:
+    
+    # if there's a position get the side
+    if data.get("pos") is not False and data.get("side") is None:
+        side = data.get("pos").side
+        return side
+    elif data.get("side") is None:
         return "buy"
-    elif data.get("side") == "both":
-        return data.get("action")
     else:
         return data.get("side")
 
