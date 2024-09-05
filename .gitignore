@@ -122,3 +122,4 @@ var/
 venv.bak/
 venv/
 wheels/
+crednetials.json
