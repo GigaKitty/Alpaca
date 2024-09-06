@@ -153,7 +153,7 @@ async def main():
     if total_pl_all_symbols >= 0:
         summary = f"💚Daily P/L Report {environment} +🤑{total_pl_all_symbols}"
     else:
-        summary = f"😡Daily P/L Report {environment} -😭{total_pl_all_symbols}"
+        summary = f"🩸Daily P/L Report {environment} -😭{total_pl_all_symbols}"
 
     description = f"Daily P/L for all symbols:\n\n{table}"
 
