@@ -36,7 +36,6 @@ def qty(data):
     
     if cash > 0:
         cash = round(cash * data["risk"])
-        # @TODO: change to high low close dynamic based on side.
         if data.get("side") == "buy":
             price = round(float(data.get("low")), 1)
         elif data.get("side") == "sell":
@@ -123,8 +122,13 @@ def trail_percent(data):
 def profit_limit_price(data):
     # limit price is price * 0.98 or similar
     # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
-    price = round(float(data.get("high")), 2)
-    return price * 1.01
+    if data.get("action") == "buy":
+        price = round(float(data.get("high")), 2)
+        return price * 1.01
+
+    elif data.get("action") == "sell":
+        price = round(float(data.get("low")), 2)
+        return price * 0.99
 
 
 def stop_price(data):
@@ -133,8 +137,12 @@ def stop_price(data):
     price is the low price of the current bar
 
     """
-    price = round(float(data.get("low")), 2)
-    return round(float(price * 0.99))
+    if data.get("action") == "buy":
+        price = round(float(data.get("low")), 2)
+        return round(float(price * 0.99))
+    elif data.get("action") == "sell":
+        price = round(float(data.get("high")), 2)
+        return round(float(price * 1.01))
 
 
 def stop_limit_price(data):
@@ -142,22 +150,29 @@ def stop_limit_price(data):
     stop price is price * 0.98 or similar
     price is the open price of the current
     """
-    price = round(float(data.get("open")), 2)
-    return round(float(price * 0.98))
-
-
-def limit_price(data):
+    if data.get("action") == "buy":
+        price = round(float(data.get("low")), 2)
+        return round(float(price * 0.99))
+    elif data.get("action") == "sell":
+        price = round(float(data.get("high")), 2)
+        return round(float(price * 1.01))
+     
+     
+def limit_price(data: dict) -> float:
     """
-    Limit price is price * 0.98 or similar
-    limit price is the low price of the current bar
+    Calculate the limit price based on the action specified in the data.
+    For a 'buy' action, the limit price is the low price of the current bar multiplied by 0.999.
+    For a 'sell' action, the limit price is the high price of the current bar multiplied by 1.001.
     """
-    # limit price is price * 0.98 or similar
-    low = round(float(data.get("low")), 10) 
-    app.logger.debug(f"low: {low}")
-    limit_price = round(low * data.get("limit_price", 0.98), 10)
-    app.logger.debug(f"Limit Price: {limit_price}")
-    return limit_price
-
+    action = data.get("action")
+    if action == "buy":
+        price = float(data.get("low", 0))
+        return round(price * 0.999, 2)
+    elif action == "sell":
+        price = float(data.get("high", 0))
+        return round(price * 1.001, 2)
+    else:
+        raise ValueError("Invalid action specified in data")
 
 def risk(data):
     if data.get("risk"):

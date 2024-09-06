@@ -61,9 +61,10 @@ def preprocess():
     g.data["comment"] = g.data.get("comment", "nocomment")
     g.data["interval"] = g.data.get("interval", "nointerval")
 
-    # At the end so we can se the results
-    app.logger.debug("Data: %s", g.data)
+    # At the end so we can see the results
+    #app.logger.debug("Data: %s", g.data)
 
     # Needs to be last
-    g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
+    if g.data.get("sp") != "skip":
+        g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
 

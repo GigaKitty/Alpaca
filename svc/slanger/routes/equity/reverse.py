@@ -19,13 +19,12 @@ def order():
         try:
             api.close_position(g.data.get("ticker"))
             position.wait_position_close(g.data, api)
-        except APIError as e:
-            if e.status_code == 400:
-                app.logger.error(f"Failed to close position for {g.data.get('ticker')}: {e}")
-            else:
-                raise  # Re-raise the exception if it's not a 400 error
+        except Exception as e:
+            app.logger.error(f"Failed to close position for {g.data.get('ticker')}: {e}")
     
-
+    if g.data.get("comment") == "Close entry(s) order Long" or g.data.get("comment") == "Close entry(s) order Short":
+        return jsonify({"message": "Webhook received and processed successfully"}), 200
+    
     try:
         order_data = MarketOrderRequest(
             symbol=g.data.get("ticker"),

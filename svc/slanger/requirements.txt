@@ -33,3 +33,4 @@ typing_extensions==4.7.1
 tzdata==2023.3
 urllib3==1.26.16
 websockets==11.0.3
+coloredlogs==15.0.1

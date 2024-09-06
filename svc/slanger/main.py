@@ -16,6 +16,7 @@ from routes.equity.market import equity_market
 from routes.equity.notional import equity_notional
 from routes.equity.stop_limit import equity_stop_limit
 from routes.equity.reverse import equity_reverse
+from routes.equity.reverselimit import equity_reverselimit
 
 if __name__ == "__main__":
     # Register routes for crypto
@@ -30,6 +31,7 @@ if __name__ == "__main__":
     app.register_blueprint(equity_market, url_prefix='/equity')
     app.register_blueprint(equity_notional, url_prefix='/equity')
     app.register_blueprint(equity_reverse, url_prefix='/equity')
+    app.register_blueprint(equity_reverselimit, url_prefix='/equity')
     app.register_blueprint(equity_stop_limit, url_prefix='/equity')
     
     # Run the app

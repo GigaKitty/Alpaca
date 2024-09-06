@@ -18,15 +18,33 @@ def get_position(data, api) -> bool:
     except Exception as e:
         return False
 
-def wait_position_close(data, api, timeout=60, check_interval=1):
+def wait_position_close(data, api, timeout=60):
     """
-    Waits for the position to close
+    Wait until the position is closed.
+
+    :param data: The data containing the ticker information.
+    :param api: The API instance to interact with the trading platform.
+    :param timeout: The maximum time (in seconds) to wait for the position to close.
     """
+    ticker = data.get("ticker")
     start_time = time.time()
+
+    # Wait until the position is closed for the specified timeout duration in seconds
     while time.time() - start_time < timeout:
-     if get_position(data, api):
-            return True
-     time.sleep(check_interval)
+        try:
+            position = get_position(data, api)
+            app.logger.debug(f"Position: {position}")
+            if position is not None and position.qty == 0:
+                app.logger.info(f"Position for {ticker} is closed.")
+                return True
+        except Exception as e:
+            app.logger.error(f"Error checking position status for {ticker}: {e}")
+            return False
+
+        app.logger.info(f"Position for {ticker} is still open. Checking again ...")
+
+    app.logger.error(f"Timeout: Position for {ticker} did not close within {timeout} seconds.")
+    
     return False
 
 

@@ -1,0 +1,8 @@
+alpaca-py==0.30.1
+apscheduler==3.10.4
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+gspread==6.1.2 
+pytz

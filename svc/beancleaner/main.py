@@ -88,20 +88,20 @@ async def clean_the_bean():
         )
 
         # Check if the unrealized loss is less than $1
-        if unrealized_pl >= -1.0:
-            try:
-                logging.info(f"Closing position in {symbol} with unrealized P/L")
-                api.close_position(symbol)
-                if unrealized_pl >= 0:
-                    logging.info(
-                        f"Closing position in {symbol} with a profit of {unrealized_pl}"
-                    )
-                else:
-                    logging.info(
-                        f"Closed position in {symbol} with a loss of {unrealized_pl}"
-                    )
-            except Exception as e:
-                logging.error(f"Error closing position in {symbol}: {e}")
+        #if unrealized_pl >= -200.0:
+        try:
+            logging.info(f"Closing position in {symbol} with unrealized P/L")
+            api.close_position(symbol)
+            if unrealized_pl >= 0:
+                logging.info(
+                    f"Closing position in {symbol} with a profit of {unrealized_pl}"
+                )
+            else:
+                logging.info(
+                    f"Closed position in {symbol} with a loss of {unrealized_pl}"
+                )
+        except Exception as e:
+            logging.error(f"Error closing position in {symbol}: {e}")
 
 
 async def scheduler_task(scheduler):
@@ -120,7 +120,7 @@ async def main():
     """
     scheduler = AsyncIOScheduler(timezone=est)
     logging.info("Starting the bean cleaner service")
-    trigger = CronTrigger(day_of_week="mon-fri", hour=15, minute=55, timezone=est)
+    trigger = CronTrigger(day_of_week="mon-fri", hour=15, minute=59, timezone=est)
     logging.info(f"Bean cleaner scheduled to run at {trigger}")
     scheduler.add_job(clean_the_bean, trigger)
     await scheduler_task(scheduler)
