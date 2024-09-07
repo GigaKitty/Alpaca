@@ -1,8 +1,8 @@
-import os
-from flask import Flask
 from alpaca.trading.client import TradingClient
-#import logging
-#import coloredlogs
+from flask import Flask
+from prometheus_flask_exporter import PrometheusMetrics
+from utils import metrics
+import os
 
 paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
 
@@ -18,24 +18,5 @@ app = Flask(__name__)
 if os.getenv('ENVIRONMENT') == 'dev' or os.getenv('DEBUG') == 'True':
     app.config['DEBUG'] = True
 
-# coloredlogs.install(level='DEBUG', logger=app.logger, fmt='%(asctime)s %(levelname)s %(message)s')
-# # Define a custom logging format
-# formatter = ColoredFormatter(
-#     "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#     datefmt="%Y-%m-%d %H:%M:%S",
-#     log_colors={
-#         'DEBUG': 'cyan',
-#         'INFO': 'green',
-#         'WARNING': 'yellow',
-#         'ERROR': 'red',
-#         'CRITICAL': 'bold_red',
-#     },
-# )
-
-# # Get the Flask app's logger and set the level
-# handler = logging.StreamHandler()
-# handler.setFormatter(formatter)
-
-# # Set the handler for the Flask logger
-# app.logger.addHandler(handler)
-# app.logger.setLevel(logging.DEBUG)
+metrics = PrometheusMetrics(app)
+metrics.info('app_info', 'Application info', version='1.0.3')

@@ -20,6 +20,7 @@ $RECYCLE.BIN/
 *.py[cod]
 *.sage.py
 *.so
+*.credentials
 *.spec
 */build/*
 *~

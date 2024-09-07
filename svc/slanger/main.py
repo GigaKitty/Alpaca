@@ -1,7 +1,8 @@
 from config import app
-from flask import render_template, request
+from flask import Flask, render_template, request
+
 # Import default routes
-from routes import metrics, health, before_request, after_request, error_handler
+from routes import health, before_request, after_request, error_handler
 
 # Import routes for crypto
 from routes.crypto.limit import crypto_limit

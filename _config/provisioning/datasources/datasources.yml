@@ -12,3 +12,51 @@ datasources:
     jsonData:
       client: "redis"
       secure: false
+ - name: InfluDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: "influxdb"
+    user : "admin"
+    password : "admin"
+    jsonData:
+      timeInterval: "5s"
+      timeField: "time"
+      valueField: "value"
+      groupByTime: true
+      groupByField: "host"
+      tags: []
+      queries:
+        - query: "SELECT mean(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "A"
+          format: "time_series"
+          alias: "Mean"
+        - query: "SELECT max(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "B"
+          format: "time_series"
+          alias: "Max"
+        - query: "SELECT min(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "C"
+          format: "time_series"
+          alias: "Min"
+        - query: "SELECT last(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "D"
+          format: "time_series"
+          alias: "Last"
+        - query: "SELECT count(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "E"
+          format: "time_series"
+          alias: "Count"
+        - query: "SELECT sum(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "F"
+          format: "time_series"
+          alias: "Sum"
+        - query: "SELECT derivative(mean(\"value\"), 1s) FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "G"
+          format: "time_series"
+          alias: "Derivative"
+        - query: "SELECT integral(mean(\"value\"), 1s) FROM \"influxdb\" WHERE $timeFilter GROUP BY time($__interval), \"host\" fill(null)"
+          refId: "H"
+          format: "time_series"
+          alias: "Integral"
+        - query: "SELECT elapsed(\"value\") FROM \"influxdb\" WHERE $timeFilter GROUP BY time
