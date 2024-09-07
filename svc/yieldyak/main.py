@@ -147,9 +147,11 @@ async def main():
     
     # Add Google Calendar event
     table = format_data_as_table(data)
-
-    start_time = datetime.now().replace(hour=13, minute=0, second=0, microsecond=0)
+    tz = timezone('America/Los_Angeles')
+    start_time = datetime.now(tz).replace(hour=17, minute=0, second=0, microsecond=0)
     end_time = start_time + timedelta(minutes=15)  # Set the event duration to 15 minutes
+    total_pl_all_symbols=round(total_pl_all_symbols, 2)
+
     if total_pl_all_symbols >= 0:
         summary = f"💚Daily P/L Report {environment} +🤑{total_pl_all_symbols}"
     else:
@@ -165,7 +167,7 @@ def run_scheduler():
         main,
         "cron",
         day_of_week="mon-fri",
-        hour=18,
+        hour=20,
         minute=00,
         timezone="America/New_York",
     )
