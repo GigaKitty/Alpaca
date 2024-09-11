@@ -114,12 +114,13 @@ def anal(data, api):
     action = data.get("action")
     pos = data.get("pos")
     profit = data.get("profit")
+    neversell = data.get("neversell", False)
 
     # check request endpoint if it's a crypto order
     if request.endpoint.startswith("crypto"):
         profit_margin = float(pos.market_value) * data.get("profit_margin", 0.03)
     else:
-        profit_margin = 0 #float(pos.market_value) * data.get("profit_margin", 0.001)
+        profit_margin = float(pos.market_value) * data.get("profit_margin", 0.0001)
     
     # make position.side lowercase for comparison with action returns long or short
     side = pos.side.lower()
@@ -138,14 +139,11 @@ def anal(data, api):
     elif profit <= profit_margin and side != action:
         app.logger.debug(f"Skipping {pos.symbol} with action {action} in favor or same side {side} P/L {profit} return False")
         return False
-    elif profit >= profit_margin and side != action and not request.endpoint.startswith("equity_bracket"):
+    elif profit >= profit_margin and side != action and not request.endpoint.startswith("equity_bracket") and neversell is False:
         app.logger.debug(f"Closing position {pos.symbol} with action {action} on {side} side P/L {profit} return True")
         api.close_position(pos.symbol)
         app.logger.debug(f"Closed all position(s) for {pos.symbol}")
-        response_data = {"message": f"Closed position {pos.symbol} due to profit and action mismatch"}
         return False
-        #return jsonify(response_data), 200
     else:
-        # all else return true
         app.logger.debug(f"There is no position and no profit place trade in either direction return True")
         return True

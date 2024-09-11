@@ -1,5 +1,5 @@
 
-from flask import Blueprint, jsonify, g
+from flask import Blueprint, jsonify, g, copy_current_request_context
 from alpaca.trading.requests import LimitOrderRequest
 from alpaca.trading.enums import TimeInForce
 from config import api, app
@@ -26,8 +26,7 @@ def order():
     # Only applies to the SMA strategy because it has close entry(s) order Long and Short
     if g.data.get("comment") == "Close entry(s) order Long" or g.data.get("comment") == "Close entry(s) order Short":
         return jsonify({"message": "Webhook received and processed successfully"}), 200
-
-    # Take the high and the low to find the spread divide by 4 into quadrants get the limit price
+    
     calc_spread = round(float(g.data.get("high")) - float(g.data.get("low")), 2) / 4
 
     # Calculate prices based on a candle spread broken into 4 quadrants
@@ -38,7 +37,7 @@ def order():
     
     app.logger.debug("Spread: %s", calc_spread)
     app.logger.debug("Limit Price: %s", calc_limit_price)
-   
+
     try:
         order_data = LimitOrderRequest(
             symbol=g.data.get("ticker"),
@@ -55,6 +54,7 @@ def order():
         app.logger.debug("Order: %s", order)
         
         # Schedule a task to cancel the order after 1 minute
+        @copy_current_request_context
         def cancel_order_after_1_minute(api, order_id):
             time.sleep(60)  # Wait for 1 minute
             try:

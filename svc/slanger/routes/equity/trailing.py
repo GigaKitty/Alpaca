@@ -1,5 +1,10 @@
 
-# @orders.route("/trailing", methods=["POST"])
+from flask import Blueprint, jsonify, g
+from alpaca.trading.requests import TrailingStopOrderRequest
+from alpaca.trading.enums import TimeInForce
+from config import api, app
+
+@orders.route("/trailing", methods=["POST"])
 def trailing():
     """
     Places a trailing stop order based on TradingView WebHook for now it only works with the trailing stop percentage that's to simplify the process and avoid losses due to complexity of the trailing stop order types i.e. trail_price, trail_percent, etc.

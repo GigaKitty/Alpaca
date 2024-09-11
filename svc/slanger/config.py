@@ -1,7 +1,7 @@
 from alpaca.trading.client import TradingClient
 from flask import Flask
 from prometheus_flask_exporter import PrometheusMetrics
-from utils import metrics
+from utils import metrics, logging
 import os
 
 paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
@@ -20,3 +20,16 @@ if os.getenv('ENVIRONMENT') == 'dev' or os.getenv('DEBUG') == 'True':
 
 metrics = PrometheusMetrics(app)
 metrics.info('app_info', 'Application info', version='1.0.3')
+
+
+# Create a handler
+#handler = logging.StreamHandler()
+#handler.setLevel(logging.DEBUG)
+
+# Create and set the custom formatter
+#formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#handler.setFormatter(formatter)
+
+# Add the handler to the app's logger
+#app.logger.addHandler(handler)
+#app.logger.setLevel(logging.DEBUG)

@@ -25,14 +25,14 @@ def preprocess():
     clock = api.get_clock()
 
     # Reject after hours orders
-    if not clock.is_open and not request.endpoint.startswith('crypto'):
+    if not clock.is_open and (request.endpoint is None or not request.endpoint.startswith('crypto')):
         return jsonify({"Market Closed": "Market is closed"}), 400
     
     # Set the global data to the request.json
     g.data = request.json
 
     # Validate the signature of the request coming in
-    if sec.validate_signature(g.data) != True:
+    if sec.validate_signature(g.data) != True and request.endpoint not in ['health', 'metrics']:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
     # Setup account details
@@ -51,10 +51,12 @@ def preprocess():
     g.data["qty_available"] = g.data.get("qty_available", calc.qty_available(g.data, api))
     g.data["side"] = g.data.get("side", calc.side(g.data))
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
-    g.data["trailing"] = g.data.get("trailing", calc.trailing(g.data))
+    g.data["trailing"] = calc.trailing(g.data)
+    g.data["opps"] = g.data.get("opps", position.opps(g.data, api))
 
     # Order
     g.data["order_id"] = order.gen_id(g.data, 10)
+    g.data["order_entry_interval"] = g.data.get("order_entry_interval", "1m")
 
     # Other
     g.data["after_hours"] = g.data.get("after_hours", False)
@@ -64,7 +66,8 @@ def preprocess():
     # At the end so we can see the results
     #app.logger.debug("Data: %s", g.data)
 
-    # Needs to be last
-    if g.data.get("sp") != "skip":
+    # Needs to be last so we can see the results
+    # skip sp if reverse type order
+    if g.data.get("sp") != "skip" or request.endpoint not in ['reverse', 'trailing']:
         g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
 

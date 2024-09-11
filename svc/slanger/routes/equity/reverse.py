@@ -1,5 +1,5 @@
 
-from flask import Blueprint, jsonify, g
+from flask import Blueprint, jsonify, g, copy_current_request_context
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import TimeInForce
 from config import api, app
@@ -37,6 +37,19 @@ def order():
         app.logger.debug("Market Data: %s", order_data)
         order = api.submit_order(order_data=order_data)
         app.logger.debug("Market Order: %s", order)
+        # Schedule a task to cancel the order after 1 minute
+
+        @copy_current_request_context
+        def cancel_order_after_1_minute(api, order_id):
+            time.sleep(60)  # Wait for 1 minute
+            try:
+                api.cancel_order_by_id(order_id)
+                app.logger.debug(f"Order {order_id} canceled after 1 minute")
+            except Exception as e:
+                app.logger.error(f"Failed to cancel order {order_id}: {e}")
+
+        threading.Thread(target=cancel_order_after_1_minute, args=(api, order.id,)).start()
+
         response_data = {"message": "Webhook received and processed successfully"}
         return jsonify(response_data), 200
 

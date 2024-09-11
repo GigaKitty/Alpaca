@@ -27,15 +27,17 @@ redis_client = aioredis.from_url(
 )
 
 
-async def update_earnings_list_periodically(update_interval, websocket):
+async def update_list_periodically(update_interval, websocket):
     while True:
-        earnings_list = await get_earnings_list()
-        logging.info(f"Updating subscription to the following tickers: {earnings_list}")
+        # @IMP: add a global redis item for this list called skip list
+        ticker_list = await get_list(['aristocrats_list', 'earnings_list'])
+        
+        logging.info(f"Updating subscription to the following tickers: {ticker_list}")
         subscription_message = json.dumps(
             {
                 "action": "subscribe",
-                "trades": earnings_list,
-                "quotes": earnings_list,
+                "trades": ticker_list,
+                "quotes": ticker_list,
                 "bars": ["*"],
                 "statuses": ["*"],
             }
@@ -48,18 +50,17 @@ async def update_earnings_list_periodically(update_interval, websocket):
             websocket = await connect_to_websocket()
 
 
-async def get_earnings_list():
-    """
-    List is published via another service and is part of earnyearn service
-    This grabs the list from Redis returns the list of tickers and closes redis connection
-    """
+async def get_list(ticker_list):
+    combined_list = []
     try:
-        earnings_list = await redis_client.lindex("earnings_list", 0)
-        return json.loads(earnings_list)
-
+        for ticker in ticker_list:
+            ticker_item = await redis_client.lindex(ticker, 0)
+            if ticker_item:
+                combined_list.extend(json.loads(ticker_item))
     except Exception as e:
         logging.error(f"Error fetching latest message from Redis: {e}")
         return None
+    return combined_list
 
 
 async def handle_connection(request):
@@ -166,7 +167,7 @@ async def stocks_socket():
                 isinstance(response_data, list)
                 and response_data[0].get("T") == "success"
             ):
-                asyncio.create_task(update_earnings_list_periodically(60, websocket))
+                asyncio.create_task(update_list_periodically(60, websocket))
 
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:

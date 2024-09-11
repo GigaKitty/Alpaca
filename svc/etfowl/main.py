@@ -105,5 +105,5 @@ def main():
         print(f"Placing limit order for {symbol} at price {avg_low}")
         place_limit_order(symbol, avg_low)
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+   # main()

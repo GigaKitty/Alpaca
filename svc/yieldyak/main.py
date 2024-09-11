@@ -175,7 +175,9 @@ def run_scheduler():
     print("Scheduler started")
     try:
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+        if os.getenv("DEBUG", False):
+            loop.run_until_complete(main())
+
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit):
         pass

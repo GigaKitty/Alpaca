@@ -37,7 +37,7 @@ redis_port = int(os.getenv("REDIS_PORT", 6379))
 #######################################################
 
 
-async def get_earnings_list():
+async def get_list(list_name):
     """
     List is published via another service and is part of earnyearn service
     This grabs the list from Redis returns the list of tickers and closes redis connection
@@ -53,7 +53,7 @@ async def get_earnings_list():
             socket_connect_timeout=60,
             socket_keepalive=True,
         )
-        latest_message = await redis.lindex("earnings_list", 0)
+        latest_message = await redis.lindex(list_name, 0)
         return latest_message
     except Exception as e:
         logging.error(f"Error fetching latest message from Redis: {e}")
@@ -72,12 +72,17 @@ async def clean_the_bean():
     logging.info("fetching positions to clean up the beans")
     positions = api.get_all_positions()
     logging.info(f"Found {len(positions)} positions")
-    earnings_list = await get_earnings_list()
-    logging.info(f"Found {len(earnings_list)} earnings")
+
+    # @TODO: make this dynamically populated from skip_list
+    earnings_list = await get_list('earnings_list')
+    aristocrats_list = await get_list('dividend_aristocrats')
+    # merge the lists
+    skip_list = earnings_list + aristocrats_list
+    logging.info(f"Found {len(skip_list)} earnings")
     
     # us_equity only keep stocks and omit options
     remaining_positions = [
-        position for position in positions if position.symbol not in earnings_list and position.asset_class == "us_equity"
+        position for position in positions if position.symbol not in skip_list and position.asset_class == "us_equity"
     ]
 
     for position in remaining_positions:

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import aiohttp
 import asyncio
 import os
+import json
 import pandas as pd
 import redis.asyncio as aioredis
 
@@ -24,8 +25,6 @@ redis = aioredis.Redis(
 #######################################################
 #######################################################
 #######################################################
-
-
 async def scrape_dividend_aristocrats():
     """
     Scrapes  wikipedia for the dividend aristocrats and returns a list of ticker symbols
@@ -46,18 +45,26 @@ async def scrape_dividend_aristocrats():
             return aristocrats
 
 
-async def store_in_redis(data):
-    """
-    Stores the dividend aristocrats list in Redis so other services can consume it
-    """
-    await redis.set("dividend_aristocrats", pd.DataFrame(data).to_json())
-    await redis.aclose()
+async def publish_list(list_name, message):
+    try:
+        await redis.delete(list_name)
+        await redis.lpush(list_name, message)
+        print(f"Published message: {message} to list: {list_name}")
+    except aioredis.exceptions.TimeoutError:
+        print(f"Timeout error while publishing message: {message} to list: {list_name}")
+    except aioredis.exceptions.RedisError as e:
+        print(
+            f"Redis error: {e} while publishing message: {message} to list: {list_name}"
+        )
 
 
+# @TODO: Add a method this does the ta in this service
 async def main():
     aristocrats = await scrape_dividend_aristocrats()
-    await store_in_redis(aristocrats)
+    await publish_list("dividend_aristocrats", json.dumps(aristocrats))
 
+
+# for any position that's 
 
 def run_scheduler():
     scheduler = AsyncIOScheduler()
@@ -71,6 +78,8 @@ def run_scheduler():
     )
     scheduler.start()
     print("Scheduler started")
+    # Run once on startup
+    asyncio.get_event_loop().run_until_complete(main())
     try:
         asyncio.get_event_loop().run_forever()
     except (KeyboardInterrupt, SystemExit):

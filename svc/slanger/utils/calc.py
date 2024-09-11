@@ -29,13 +29,13 @@ def get_current_price(data, api):
 def qty(data):
     """
     Calculate the quantity of shares to buy based on the risk value and the share price
-    Logic for qty is calculated as percentage of cash available to trade
+    Logic for qty is calculated as percentage of buying_power available to trade
     Additional logic can be added to calculate the qty based on the risk value, percentage of portfolio, equal dollar investment, market cap weighting, risk mananagement, growth potential, sector allocation, etc.
     """
-    cash = float(data["acc"].cash)
+    buying_power = float(data["acc"].buying_power)
     
-    if cash > 0:
-        cash = round(cash * data["risk"])
+    if buying_power > 0:
+        buying_power = round(buying_power * data["risk"])
         if data.get("side") == "buy":
             price = round(float(data.get("low")), 1)
         elif data.get("side") == "sell":
@@ -43,7 +43,7 @@ def qty(data):
         else:
             price = round(float(data.get("open")), 1)
 
-        qty = round(cash / price)
+        qty = round(buying_power / price)
     else:
         qty = 1
 
@@ -87,14 +87,14 @@ def side(data):
 def notional(data):
     """
     Calculate the notional value of the order
-    This is the total value of the order based on cash available to trade
-    If cash is $1000 and risk is 0.01, then notional value is $10
+    This is the total value of the order based on buying_power available to trade
+    If buying_power is $1000 and risk is 0.01, then notional value is $10
     """
-    cash = float(data["acc"].cash)
-    if cash > 0:
-        cash = round(cash * data["risk"])
+    buying_power = float(data["acc"].buying_power)
+    if buying_power > 0:
+        buying_power = round(buying_power * data["risk"])
         price = round(float(data.get("low")), 1)
-        return cash
+        return buying_power
     else:
         return 1
 
@@ -103,10 +103,10 @@ def trailing(data):
     """
     Helps to determine if the order is a trailing order or not this is a postprocessing order type
     """
-    if data.get("trailing") == "False":
-        return False
-    else:
+    if data.get("trailing") == 1:
         return True
+    else:
+        return False
 
 
 def trail_percent(data):
@@ -116,7 +116,7 @@ def trail_percent(data):
     # 0.1 is the lowest it will accept
     # get current position in $ value and return 1% of that
     # @EXAMPLE: %1 of $100 is $1
-    return 0.1
+    return 1
 
 
 def profit_limit_price(data):
@@ -152,12 +152,12 @@ def stop_limit_price(data):
     """
     if data.get("action") == "buy":
         price = round(float(data.get("low")), 2)
-        return round(float(price * 0.99))
+        return round(float(price * 0.98))
     elif data.get("action") == "sell":
         price = round(float(data.get("high")), 2)
         return round(float(price * 1.01))
-     
-     
+    
+
 def limit_price(data: dict) -> float:
     """
     Calculate the limit price based on the action specified in the data.
