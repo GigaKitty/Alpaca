@@ -20,7 +20,7 @@ pydantic_core==2.16.3
 python-dateutil==2.8.2
 pytz==2023.3.post1
 PyYAML==6.0.1
-requests==2.31.0
+requests==2.32.2
 s3transfer==0.6.2
 six==1.16.0
 sseclient-py==1.8.0
