@@ -1,0 +1,1 @@
+A simple service which calculates the EOD P/L for the day and sends it off to google sheets as well as added to a google calendar so that an overview can be easily tracked daily.

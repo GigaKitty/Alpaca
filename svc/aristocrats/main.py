@@ -2,9 +2,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bs4 import BeautifulSoup
 import aiohttp
 import asyncio
-import os
 import json
-import pandas as pd
+import os
 import redis.asyncio as aioredis
 
 #######################################################
@@ -58,13 +57,10 @@ async def publish_list(list_name, message):
         )
 
 
-# @TODO: Add a method this does the ta in this service
 async def main():
     aristocrats = await scrape_dividend_aristocrats()
     await publish_list("dividend_aristocrats", json.dumps(aristocrats))
 
-
-# for any position that's 
 
 def run_scheduler():
     scheduler = AsyncIOScheduler()

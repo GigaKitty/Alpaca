@@ -60,7 +60,7 @@ async def get_list(list_name):
         return None
     finally:
         if redis:
-            await redis.close()
+            await redis.aclose()
 
 
 async def clean_the_bean():
@@ -73,7 +73,7 @@ async def clean_the_bean():
     positions = api.get_all_positions()
     logging.info(f"Found {len(positions)} positions")
 
-    # @TODO: make this dynamically populated from skip_list
+    # @TODO: make this dynamically populated from skip_list in redis
     earnings_list = await get_list('earnings_list')
     aristocrats_list = await get_list('dividend_aristocrats')
     # merge the lists
@@ -92,21 +92,21 @@ async def clean_the_bean():
             f"Found position in {position.symbol} with unrealized P/L {unrealized_pl}"
         )
 
-        # Check if the unrealized loss is less than $1
-        #if unrealized_pl >= -200.0:
-        try:
-            logging.info(f"Closing position in {symbol} with unrealized P/L")
-            api.close_position(symbol)
-            if unrealized_pl >= 0:
-                logging.info(
-                    f"Closing position in {symbol} with a profit of {unrealized_pl}"
-                )
-            else:
-                logging.info(
-                    f"Closed position in {symbol} with a loss of {unrealized_pl}"
-                )
-        except Exception as e:
-            logging.error(f"Error closing position in {symbol}: {e}")
+        # Check if the unrealized loss is greater than -$1
+        if unrealized_pl >= -1:
+            try:
+                logging.info(f"Closing position in {symbol} with unrealized P/L")
+                api.close_position(symbol)
+                if unrealized_pl >= 0:
+                    logging.info(
+                        f"Closing position in {symbol} with a profit of {unrealized_pl}"
+                    )
+                else:
+                    logging.info(
+                        f"Closed position in {symbol} with a loss of {unrealized_pl}"
+                    )
+            except Exception as e:
+                logging.error(f"Error closing position in {symbol}: {e}")
 
 
 async def scheduler_task(scheduler):

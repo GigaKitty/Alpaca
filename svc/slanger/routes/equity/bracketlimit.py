@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, g
 from alpaca.trading.requests import (
-    MarketOrderRequest,
+    LimitOrderRequest,
     TakeProfitRequest,
     StopLossRequest,
     OrderClass,
@@ -9,15 +9,14 @@ from alpaca.trading.enums import TimeInForce
 from config import api, app
 from utils import calc, order as order_utils, position
 
-equity_bracket = Blueprint("equity_bracket", __name__)
+equity_bracketlimit = Blueprint("equity_bracketlimit", __name__)
 
 
-@equity_bracket.route("/bracket", methods=["POST"])
+@equity_bracketlimit.route("/bracketlimit", methods=["POST"])
 def place_order():
     """
-    Places a bracket order based on WebHook data
+    Places a bracketlimit order based on WebHook data
     @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
-    @NOTE: This seems to do well when the market is really volatile for instance when the fed cuts the rates
     """
     if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
         try:
@@ -49,21 +48,24 @@ def place_order():
             time.sleep(1)  # Wait for 1 second before checking again
 
     try:
+        calc_limit_price = round(calc.limit_price(g.data), 2)
         calc_profit_limit_price = round(calc.profit_limit_price(g.data), 2)
         calc_stop_price = round(calc.stop_price(g.data), 2)
         calc_stop_limit_price = round(calc.stop_limit_price(g.data), 2)
        
-        app.logger.debug("🦕 BRACKET %s on %s", g.data.get("action"), g.data.get("ticker"))
+        app.logger.debug("🦕 bracketlimit %s on %s", g.data.get("action"), g.data.get("ticker"))
+        app.logger.debug("calc_limit_price: %s", calc_limit_price)
         app.logger.debug("calc_profit_limit_price: %s", calc_profit_limit_price)
         app.logger.debug("calc_stop_price: %s", calc_stop_price)
         app.logger.debug("calc_stop_limit_price: %s", calc_stop_limit_price)
 
-        order_data = MarketOrderRequest(
+        order_data = LimitOrderRequest(
             symbol=g.data.get("ticker"),
             qty=g.data.get("qty"),
             side=g.data.get("action"),
             time_in_force=TimeInForce.DAY,
             order_class=OrderClass.BRACKET,
+            limit_price=g.data.get("price"),
             after_hours=g.data.get("after_hours"),
             take_profit=TakeProfitRequest(limit_price=calc_profit_limit_price),
             stop_loss=StopLossRequest(

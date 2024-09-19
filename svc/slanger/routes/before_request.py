@@ -53,6 +53,10 @@ def preprocess():
     g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
     g.data["trailing"] = calc.trailing(g.data)
     g.data["opps"] = g.data.get("opps", position.opps(g.data, api))
+    
+    #@TODO make this an option
+    g.data["entry_interval"] = g.data.get("entry_interval", "1m")
+    g.data["exit_interval"] = g.data.get("exit_interval", "1m")
 
     # Order
     g.data["order_id"] = order.gen_id(g.data, 10)
@@ -68,6 +72,7 @@ def preprocess():
 
     # Needs to be last so we can see the results
     # skip sp if reverse type order
-    if g.data.get("sp") != "skip" or request.endpoint not in ['reverse', 'trailing']:
-        g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
+    # @TODO: make this a whitelist instead of a blacklist
+    #if g.data.get("sp") != "skip" or request.endpoint not in ['reverse', 'trailing', 'tieredfiblimit']:
+      #  g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
 

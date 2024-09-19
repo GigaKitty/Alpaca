@@ -23,16 +23,16 @@ triggers:
     config:
       filter: nasdaq
 
-bgworkers:
-  - module: gdaxfeeder.so
-    config:
-      base_timeframe: '1Min'
-      query_start: '2018-01-01 00:00'
-      symbols:
-        - BTC-USD
-        - ETH-USD
-        - LTC-USD
-        - BCH-USD
-        - ZRX-USD
-        - ETC-USD
-        - BAT-USD
+# bgworkers:
+#   - module: gdaxfeeder.so
+#     config:
+#       base_timeframe: '1Min'
+#       query_start: '2018-01-01 00:00'
+#       symbols:
+#         - BTC-USD
+#         - ETH-USD
+#         - LTC-USD
+#         - BCH-USD
+#         - ZRX-USD
+#         - ETC-USD
+#         - BAT-USD

@@ -4,6 +4,8 @@ from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import TimeInForce
 from config import api, app
 from utils import position
+import threading
+import time
 
 equity_reverse = Blueprint('equity_reverse', __name__)
 

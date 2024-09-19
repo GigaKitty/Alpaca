@@ -1,4 +1,5 @@
 from config import app, api
+
 from utils import position
 """
 Calc class & functions are essentially trading rules that are used to calculate the values for the order
@@ -116,7 +117,7 @@ def trail_percent(data):
     # 0.1 is the lowest it will accept
     # get current position in $ value and return 1% of that
     # @EXAMPLE: %1 of $100 is $1
-    return 1
+    return 2
 
 
 def profit_limit_price(data):
@@ -124,25 +125,25 @@ def profit_limit_price(data):
     # Price value is coming through the webhook from tradingview so it might not be accurate to realtime price
     if data.get("action") == "buy":
         price = round(float(data.get("high")), 2)
-        return price * 1.01
+        return price * 1.001
 
     elif data.get("action") == "sell":
         price = round(float(data.get("low")), 2)
-        return price * 0.99
+        return price * 0.999
 
 
 def stop_price(data):
-    """
+    """s
     stop price is price * 0.98 or similar
     price is the low price of the current bar
 
     """
     if data.get("action") == "buy":
         price = round(float(data.get("low")), 2)
-        return round(float(price * 0.99))
+        return round(float(price * 0.999), 2)
     elif data.get("action") == "sell":
         price = round(float(data.get("high")), 2)
-        return round(float(price * 1.01))
+        return round(float(price * 1.001), 2)
 
 
 def stop_limit_price(data):
@@ -152,10 +153,10 @@ def stop_limit_price(data):
     """
     if data.get("action") == "buy":
         price = round(float(data.get("low")), 2)
-        return round(float(price * 0.98))
+        return round(float(price * 0.999), 2)
     elif data.get("action") == "sell":
         price = round(float(data.get("high")), 2)
-        return round(float(price * 1.01))
+        return round(float(price * 1.001), 2)
     
 
 def limit_price(data: dict) -> float:
@@ -166,10 +167,10 @@ def limit_price(data: dict) -> float:
     """
     action = data.get("action")
     if action == "buy":
-        price = float(data.get("low", 0))
+        price = float(data.get("low", 2))
         return round(price * 0.999, 2)
     elif action == "sell":
-        price = float(data.get("high", 0))
+        price = float(data.get("high", 2))
         return round(price * 1.001, 2)
     else:
         raise ValueError("Invalid action specified in data")

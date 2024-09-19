@@ -18,7 +18,9 @@ from routes.equity.notional import equity_notional
 from routes.equity.stop_limit import equity_stop_limit
 from routes.equity.reverse import equity_reverse
 from routes.equity.reverselimit import equity_reverselimit
-from routes.equity.tieredfib import equity_tieredfib
+from routes.equity.tieredfiblimit import equity_tieredfiblimit
+from routes.equity.aristocrats import equity_aristocrats
+from routes.equity.bracketlimit import equity_bracketlimit
 
 if __name__ == "__main__":
     # Register routes for crypto
@@ -29,13 +31,15 @@ if __name__ == "__main__":
 
     # Register routes for equity
     app.register_blueprint(equity_bracket, url_prefix='/equity')
+    app.register_blueprint(equity_bracketlimit, url_prefix='/equity')
     app.register_blueprint(equity_limit, url_prefix='/equity')
     app.register_blueprint(equity_market, url_prefix='/equity')
     app.register_blueprint(equity_notional, url_prefix='/equity')
     app.register_blueprint(equity_reverse, url_prefix='/equity')
     app.register_blueprint(equity_reverselimit, url_prefix='/equity')
     app.register_blueprint(equity_stop_limit, url_prefix='/equity')
-    app.register_blueprint(equity_tieredfib, url_prefix='/equity')
-    
+    app.register_blueprint(equity_tieredfiblimit, url_prefix='/equity')
+    app.register_blueprint(equity_aristocrats, url_prefix='/equity')
+
     # Run the app
     app.run(host="0.0.0.0", port=5000)

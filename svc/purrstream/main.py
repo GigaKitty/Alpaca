@@ -30,8 +30,10 @@ redis_client = aioredis.from_url(
 async def update_list_periodically(update_interval, websocket):
     while True:
         # @IMP: add a global redis item for this list called skip list
-        ticker_list = await get_list(['aristocrats_list', 'earnings_list'])
-        
+        ticker_list = ["aristocrats_list", "earnings_list", "volatilityvulture_list"]
+        logging.debug(f"skip_list: {ticker_list}")
+        ticker_list = await get_list(ticker_list)
+
         logging.info(f"Updating subscription to the following tickers: {ticker_list}")
         subscription_message = json.dumps(
             {
@@ -52,6 +54,7 @@ async def update_list_periodically(update_interval, websocket):
 
 async def get_list(ticker_list):
     combined_list = []
+    ticker_list = sorted(ticker_list)
     try:
         for ticker in ticker_list:
             ticker_item = await redis_client.lindex(ticker, 0)
@@ -60,6 +63,9 @@ async def get_list(ticker_list):
     except Exception as e:
         logging.error(f"Error fetching latest message from Redis: {e}")
         return None
+
+    # Remove duplicates
+    combined_list = list(set(combined_list))
     return combined_list
 
 
@@ -129,7 +135,7 @@ async def news_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        logging.info(f"News data: {data}")
+                        #logging.info(f"News data: {data}")
                         await broadcast(data, "news_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("News WebSocket connection closed")
@@ -172,7 +178,7 @@ async def stocks_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        logging.info(f"Stocks data: {data}")
+                        #logging.info(f"Stocks data: {data}")
                         await broadcast(data, "stocks_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Stocks WebSocket connection closed")
@@ -229,7 +235,7 @@ async def crypto_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        logging.info(f"Crypto data: {data}")
+                        #logging.info(f"Crypto data: {data}")
                         await broadcast(data, "crypto_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Crypto WebSocket connection closed")

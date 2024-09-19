@@ -1,0 +1,4 @@
+pymarketstore
+pandas
+matplotlib
+plotly

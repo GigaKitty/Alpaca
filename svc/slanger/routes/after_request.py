@@ -3,13 +3,11 @@ import math
 from time import sleep
 from alpaca.trading.requests import TrailingStopOrderRequest
 from alpaca.trading.enums import TimeInForce
-import asyncio
 from flask import Flask, g, jsonify, make_response
-from utils import position
 #@TODO: MOve all traling logic into it's own endpoint and call directly from the webhook
 # Add an orders after_request to handle postprocessing
 @app.after_request
-def after_request():
+def after_request(response):
     if (
         hasattr(g, "data")
         and response.status_code == 200
@@ -76,12 +74,11 @@ def after_request():
             response_data = {
                 "message": "Webhook received and processed successfully"
             }
-            return jsonify(response_data), 200
+            return make_response(jsonify(response_data), 200)
         except Exception as e:
             app.logger.error("Error processing request: %s", str(e))
             error_message = {"error": "Failed to process webhook request"}
-            return jsonify(error_message), 400
-       
-        skip_message = {"Skip": "Skip webhook"}
+            return make_response(jsonify(error_message), 400)
 
-    return make_response(jsonify({'yo': 'mama'}), 204)
+    app.logger.debug(f"response: {response}")
+    return response

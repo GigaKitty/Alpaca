@@ -22,20 +22,14 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 ########################################
 ### SETUP ENV
 ########################################
-# api_key = os.getenv("APCA_API_KEY_ID")
-# api_sec = os.getenv("APCA_API_SECRET_KEY")
 bar_number = 42
 dataframes = {}
 fetch_pause = 60
 hook_url = os.getenv("EARNYEARN_ORDER_ENDPOINT")
-# stream = "wss://stream.data.alpaca.markets/v2/sip"
 earnings = []
 timeframe = "1Min"
 attribute_group = "OHLCV"
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
-
-# Auth Message json
-# auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
 client = StockHistoricalDataClient(
     os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY")
@@ -73,7 +67,6 @@ logging.basicConfig(level=logging.INFO)
 # Track the last buy timestamp for each symbol
 last_buy_timestamp = {}
 cooldown_period = 25  # Number of bars to wait before allowing another buy
-
 ########################################
 ########################################
 
@@ -193,7 +186,7 @@ def send_order(action, symbol, data):
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
         # "side": "long",
-        "risk": os.getenv("EARNYEARN_RISK", 0.0001),
+        "risk": os.getenv("EARNYEARN_RISK", 0.001),
         "signature": tv_sig,
         "ticker": symbol,
         "trailing": 1,
