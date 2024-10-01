@@ -62,6 +62,8 @@ _data
 *.cab
 *.cover
 *.credentials
+*.credentials.json
+svc/yieldyak/.credentials.json
 *.DS_Store
 *.egg
 *.egg-info/
