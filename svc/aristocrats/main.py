@@ -34,7 +34,8 @@ async def scrape_dividend_aristocrats():
             soup = BeautifulSoup(html, "html.parser")
             table = soup.find("table", {"class": "wikitable sortable"})
             rows = table.find_all("tr")
-            aristocrats = []
+            # Add default humana because it's not in the list and we want to include it as part of the long term strategy
+            aristocrats = ["HUM"]
             for row in rows[1:]:
                 cols = row.find_all("td")
                 ticker_symbol = cols[1].text.strip()
