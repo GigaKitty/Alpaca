@@ -1,38 +1,65 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-from pymarketstore import Client
+import alpaca_trade_api as tradeapi
+import os
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+from datetime import datetime, timedelta
 
-# Initialize MarketStore client
-client = Client("http://localhost:5993/rpc")
+ALPACA_API_KEY = os.getenv("APCA_API_KEY_ID", "your_api_key")
+ALPACA_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY", "your_secret_key")
+ALPACA_BASE_URL = "https://paper-api.alpaca.markets"
 
-# Query data from MarketStore
-symbol = "AAPL/1Min/OHLCV"
-query = {
-    "requests": [
-        {
-            "destination": symbol,
-            "start": "2023-01-01T00:00:00Z",
-            "end": "2023-12-31T23:59:59Z",
-        }
-    ]
-}
-response = client.query(query)
+INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://influxdb:8086")
+INFLUXDB_TOKEN = os.getenv(
+    "INFLUXDB_TOKEN",
+    "some_token",
+)
 
-# Convert the response to a pandas DataFrame
-data = response[symbol]
-df = pd.DataFrame(data)
+INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "org")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "influxox")
 
-# Convert the 'Epoch' column to datetime
-df['datetime'] = pd.to_datetime(df['Epoch'], unit='s')
 
-# Set the datetime column as the index
-df.set_index('datetime', inplace=True)
+def fetch_historical_data(symbol, start_date, end_date, timeframe):
+    api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url=ALPACA_BASE_URL)
+    bars = api.get_bars(symbol, timeframe, start=start_date, end=end_date).df
+    return bars
 
-# Plot the data using matplotlib
-plt.figure(figsize=(12, 6))
-plt.plot(df.index, df['Close'], label='Close Price')
-plt.title('AAPL Close Price')
-plt.xlabel('Date')
-plt.ylabel('Price')
-plt.legend()
-plt.show()
+
+def save_to_influxdb(data, symbol):
+    print(f"Connecting to InfluxDB at {INFLUXDB_URL}")
+    try:
+        with InfluxDBClient(
+            url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG
+        ) as client:
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+
+            for index, row in data.iterrows():
+                point = (
+                    Point("candle_data")
+                    .tag("symbol", symbol)
+                    .tag("timeframe", timeframe)
+                    .field("vwap", row["vwap"])
+                    .field("open", row["open"])
+                    .field("high", row["high"])
+                    .field("low", row["low"])
+                    .field("close", row["close"])
+                    .field("volume", row["volume"])
+                    .time(index.isoformat())
+                )
+
+                print(point)
+                write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
+                print(f"Saved to InfluxDB: {index} - {symbol}")
+    except Exception as e:
+        print(f"Error connecting to InfluxDB: {e}")
+
+
+if __name__ == "__main__":
+    symbol = "SPY"
+    start_date = (datetime.now() - timedelta(days=30)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )  # 1 year ago
+    end_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timeframe = "1Min"
+
+    historical_data = fetch_historical_data(symbol, start_date, end_date, timeframe)
+    save_to_influxdb(historical_data, symbol)

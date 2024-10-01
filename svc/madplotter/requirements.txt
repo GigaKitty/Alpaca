@@ -1,4 +1,2 @@
-pymarketstore
-pandas
-matplotlib
-plotly
+alpaca-trade-api
+influxdb-client
