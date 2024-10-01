@@ -61,11 +61,11 @@ def add_google_calendar_event(summary, description, start_time, end_time):
         "summary": summary,
         "description": description,
         "start": {
-            "dateTime": start_time.isoformat(),
+            "dateTime": start_time.astimezone(timezone("America/Los_Angeles")).isoformat(),
             "timeZone": "America/Los_Angeles",
         },
         "end": {
-            "dateTime": end_time.isoformat(),
+            "dateTime": end_time.astimezone(timezone("America/Los_Angeles")).isoformat(),
             "timeZone": "America/Los_Angeles",
         },
     }
@@ -596,7 +596,7 @@ def run_scheduler():
         main,
         "cron",
         day_of_week="mon-fri",
-        hour=20,
+        hour=18,
         minute=00,
         timezone="America/New_York",
     )
