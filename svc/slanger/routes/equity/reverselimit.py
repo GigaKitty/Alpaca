@@ -2,14 +2,16 @@
 from flask import Blueprint, jsonify, g, copy_current_request_context
 from alpaca.trading.requests import LimitOrderRequest
 from alpaca.trading.enums import TimeInForce
-from config import api, app
+from config import api, app, COMMENTS
 from utils import position
 import time
 import threading
+from utils.performance import timeit_ns
 
 equity_reverselimit = Blueprint('equity_reverselimit', __name__)
 
 @equity_reverselimit.route("/reverselimit", methods=["POST"])
+@timeit_ns
 def order():
     """
     Places a simple order or BUY or SELL based on TradingView WebHook
@@ -24,7 +26,7 @@ def order():
             app.logger.error(f"Failed to close position for {g.data.get('ticker')}: {e}")
     
     # Only applies to the SMA strategy because it has close entry(s) order Long and Short
-    if g.data.get("comment") == "Close entry(s) order Long" or g.data.get("comment") == "Close entry(s) order Short":
+    if g.data.get("commment") in COMMENTS:
         return jsonify({"message": "Webhook received and processed successfully"}), 200
     
     calc_spread = round(float(g.data.get("high")) - float(g.data.get("low")), 2) / 4
@@ -55,15 +57,20 @@ def order():
         
         # Schedule a task to cancel the order after 1 minute
         @copy_current_request_context
-        def cancel_order_after_1_minute(api, order_id):
-            time.sleep(60)  # Wait for 1 minute
+        def cancel_order_after(data, api, order_id):
+            if data.get("interval") == "1":
+                time.sleep(7*60)
+            elif data.get("interval") == "15S":
+                time.sleep(7*15)
+            elif data.get("interval") == "S":
+                time.sleep(7)
             try:
                 api.cancel_order_by_id(order_id)
                 app.logger.debug(f"Order {order_id} canceled after 1 minute")
             except Exception as e:
                 app.logger.error(f"Failed to cancel order {order_id}: {e}")
 
-        threading.Thread(target=cancel_order_after_1_minute, args=(api, order.id,)).start()
+        threading.Thread(target=cancel_order_after, args=(g.data, api, order.id,)).start()
 
         response_data = {"message": "Webhook received and processed successfully"}
         return jsonify(response_data), 200

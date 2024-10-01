@@ -17,18 +17,32 @@ function cap_docker_compose_it() {
   ENVIRONMENT=$1
   docker-compose -it --env-file .env-$ENVIRONMENT --profile $ENVIRONMENT -p $ENVIRONMENT --entrypoint /bin/bash $1
 }
+ 
+function backup_core() {
+  docker run --rm -v redis_data:/volume -v $(pwd)/_data/backups:/backup busybox sh -c "cd /volume && tar czf /backup/redis_data_$(date +%Y%m%d).tar.gz ."
+  docker run --rm -v grafana_data:/volume -v $(pwd)/_data/backups:/backup busybox sh -c "cd /volume && tar czf /backup/grafana_data_$(date +%Y%m%d).tar.gz ."
+  docker run --rm -v influxdb_data:/volume -v $(pwd)/_data/backups:/backup busybox sh -c "cd /volume && tar czf /backup/influxdb_data_$(date +%Y%m%d).tar.gz ."
+}
 
-for env in "${environments[@]}"; do
+
+if [ "$1" == "poke" ]; then
+  for env in "${environments[@]}"; do
     echo "Processing environment: $env"
-    # Check if the function should be called
-    if [ "$1" == "poke" ]; then
-        cap_docker_compose_poke $env
-    elif [ "$1" == "down" ]; then
-        cap_docker_compose_down $env
-    elif [ "$1" == "it" ]; then
-        cap_docker_compose_it $env
-    else
-        echo "Invalid argument. Please use 'poke' or 'down'."
-        exit 1
-    fi
-done
+    cap_docker_compose_poke $env
+  done
+elif [ "$1" == "down" ]; then
+  for env in "${environments[@]}"; do
+    echo "Processing environment: $env"
+    cap_docker_compose_down $env
+  done
+elif [ "$1" == "backup" ]; then
+    backup_core
+elif [ "$1" == "it" ]; then
+  for env in "${environments[@]}"; do
+    echo "Processing environment: $env"
+    cap_docker_compose_it $env
+  done
+else
+    echo "Invalid argumen."
+    exit 1
+fi

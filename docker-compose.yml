@@ -33,8 +33,8 @@ services:
       - ./svc/beancleaner/:/app/
     networks:
       - core_network
-    depends_on:
-      - earnyearn
+    #depends_on:
+    #  - earnyearn
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
@@ -77,10 +77,10 @@ services:
     container_name: earnyearn-${ENVIRONMENT}
     profiles:
       - dev
-      - main
+      #- main
     labels:
       - "profile=dev"
-      - "profile=main"
+      #- "profile=main"
     restart: always
     volumes:
       - ./svc/earnyearn/:/app/
@@ -118,6 +118,50 @@ services:
   #         cpus: '2.0'  # Assign 2 CPU cores
   #       reservations:
   #         cpus: '1.0'  # Reserve 1 CPU core
+  #   environment:
+  #     - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #     - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #     - ENVIRONMENT=${ENVIRONMENT}
+
+  # influxox:
+  #   build:
+  #     args:
+  #       SVC_DIR: ./svc/influxox
+  #   container_name: influxox-${ENVIRONMENT}
+  #   profiles:
+  #     - dev
+  #     - main
+  #   labels:
+  #     - "profile=dev"
+  #     - "profile=main"
+  #   restart: always
+  #   volumes:
+  #     - ./svc/influxox/:/app/
+  #   networks:
+  #     - core_network
+  #   environment:
+  #     - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+  #     - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+  #     - ENVIRONMENT=${ENVIRONMENT}
+  #     - REDIS_HOST=${REDIS_HOST:-redis-stack}
+  #     - REDIS_PORT=${REDIS_PORT:-6379}
+ 
+  # madplotter:
+  #   build:
+  #     args:
+  #       SVC_DIR: ./svc/madplotter
+  #   container_name: madplotter-${ENVIRONMENT}
+  #   profiles:
+  #     - dev
+  #   #  - main
+  #   labels:
+  #     - "profile=dev"
+  #   #  - "profile=main"
+  #   restart: always
+  #   volumes:
+  #     - ./svc/madplotter/:/app/
+  #   networks:
+  #     - core_network
   #   environment:
   #     - APCA_API_KEY_ID=${APCA_API_KEY_ID}
   #     - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
@@ -168,6 +212,8 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - KRAKEN_API_KEY=${KRAKEN_API_KEY}
+      - KRAKEN_API_SECRET=${KRAKEN_API_SECRET}
       - ENVIRONMENT=${ENVIRONMENT}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
   

@@ -16,6 +16,13 @@ equity_tieredfiblimit = Blueprint("equity_tieredfiblimit", __name__)
 
 
 def fibonacci_sequence(n):
+    """
+    - Generates a Fibonacci sequence of n numbers
+    - The sequence starts with 1, 2
+    - Each subsequent number is the sum of the two preceding numbers
+    - The sequence is truncated to n numbers
+    - Returns the Fibonacci sequence
+    """
     fib_sequence = [1, 2]
     while len(fib_sequence) < n:
         fib_sequence.append(fib_sequence[-1] + fib_sequence[-2])
@@ -23,6 +30,13 @@ def fibonacci_sequence(n):
 
 
 def define_fibonacci_tiered_strategy(base_price, tiers, base_quantity, price_increment):
+    """
+    - Defines a tiered Fibonacci strategy based on the base price, number of tiers, base quantity, and price increment
+    - Generates a Fibonacci sequence based on the number of tiers
+    - Calculates the buy and sell prices for each tier based on the Fibonacci sequence
+    - Returns a list of orders with buy price, sell price, and quantity for each tier
+    - Example: define_fibonacci_tiered_strategy(100, 5, 10, 0.1)
+    """
     fib_sequence = fibonacci_sequence(tiers)
     orders = []
     for i in range(tiers):
@@ -40,6 +54,13 @@ def define_fibonacci_tiered_strategy(base_price, tiers, base_quantity, price_inc
 
 
 def close_all_orders_and_position(symbol):
+    """
+    - Close all open orders and position for the specified symbol
+    - Cancel all open orders for the symbol
+    - Close the position for the symbol
+    - Returns True if the position was closed successfully, False otherwise
+    - Example: close_all_orders_and_position('AAPL')
+    """
     if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
         try:
             api.close_position(g.data.get("ticker"))
@@ -57,9 +78,8 @@ def close_all_orders_and_position(symbol):
             )
 
             open_orders = api.get_orders(filter=get_orders_data)
-            # open_orders = GetOrdersRequest(symbol=symbol, status="open")
             app.logger.debug(f"Open Orders: {open_orders}")
-            # Cancel each open order
+
             for order in open_orders:
                 try:
                     api.cancel_order_by_id(order.id)
@@ -80,6 +100,12 @@ def close_all_orders_and_position(symbol):
 
 @equity_tieredfiblimit.route("/tieredfiblimit", methods=["POST"])
 def order():
+    """
+    - Places a tiered Fibonacci limit order based on WebHook data
+    - Places a market order for the base quantity
+    - Places limit orders for each Fibonacci tier with buy and sell prices
+    - Example: tieredfiblimit(100, 5, 10, 0.1)
+    """
     # Define the tiered order strategy based on Fibonacci sequence
     tiers = 5  # Number of tiers
     price_increment = 0.1  # Price increment per Fibonacci level
@@ -98,7 +124,7 @@ def order():
         market_order = MarketOrderRequest(
             symbol=g.data.get("ticker"),
             qty=g.data.get("qty"),
-            side=OrderSide.BUY,
+            side=g.data.get("action"),
             time_in_force=TimeInForce.GTC,
         )
         api.submit_order(market_order)
@@ -114,7 +140,7 @@ def order():
             buy_order = LimitOrderRequest(
                 symbol=g.data.get("ticker"),
                 qty=order["quantity"],
-                side=OrderSide.BUY,
+                side=g.data.get("action"),
                 type="limit",
                 time_in_force=TimeInForce.DAY,
                 limit_price=order["buy_price"],

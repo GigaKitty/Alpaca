@@ -12,7 +12,7 @@ def trailing():
     """
     print(f"setting up trailing stop order")
     print(g.data)
-    return jsonify({"message": "trailing is there and firing"}), 200
+    #return jsonify({"message": "trailing is there and firing"}), 200
     max_attempts = 10
     for attempt in range(max_attempts):
         if attempt > max_attempts:

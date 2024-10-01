@@ -246,7 +246,7 @@ async def publish_list(list_name, message):
     try:
         await redis_conn.delete(list_name)
         await redis_conn.lpush(list_name, message)
-        print(f"Published message: {message} to list: {list_name}")
+        #print(f"Published message: {message} to list: {list_name}")
     except aioredis.exceptions.TimeoutError:
         print(f"Timeout error while publishing message: {message} to list: {list_name}")
     except aioredis.exceptions.RedisError as e:
@@ -290,6 +290,11 @@ async def main():
         )
 
         await publish_list("volatilityvulture_list", json.dumps(filtered_stocks))
+        print(f"Published message: {filtered_stocks} to list: volatilityvulture_list")
+        # monitor the volatility of the stocks using supertrend strategy
+        for stock in filtered_stocks:
+            print(f"Processing stock: {stock}")
+
 
     else:
         print(f"Error: {response.status_code} - {response.text}")
@@ -319,3 +324,57 @@ def run_scheduler():
 
 if __name__ == "__main__":
     run_scheduler()
+
+
+
+# import pandas as pd
+# import pandas_ta as ta
+
+# # Sample data for one minute interval (Replace with your actual DataFrame)
+# # Your DataFrame should have columns: ['open', 'high', 'low', 'close', 'volume']
+# df = pd.DataFrame({
+#     'open': [/* your data */],
+#     'high': [/* your data */],
+#     'low': [/* your data */],
+#     'close': [/* your data */],
+#     'volume': [/* your data */],
+# })
+
+# # Inputs
+# atr_period = 10  # ATR Period (default 10)
+# atr_multiplier = 3.0  # ATR Multiplier (default 3.0)
+
+# # Calculate ATR
+# df['atr'] = ta.atr(df['high'], df['low'], df['close'], length=atr_period)
+
+# # SuperTrend calculation
+# df['hl2'] = (df['high'] + df['low']) / 2  # HL2 (same as Pine Script 'hl2')
+
+# # Calculate upper and lower bands
+# df['upperband'] = df['hl2'] - (atr_multiplier * df['atr'])
+# df['lowerband'] = df['hl2'] + (atr_multiplier * df['atr'])
+
+# # Initialize columns for trend, up and down band
+# df['trend'] = 0
+# df['prev_upperband'] = df['upperband'].shift(1)
+# df['prev_lowerband'] = df['lowerband'].shift(1)
+# df['prev_close'] = df['close'].shift(1)
+
+# # Logic for upper and lower bands adjustment
+# df['upperband'] = df.apply(lambda row: max(row['upperband'], row['prev_upperband']) if row['prev_close'] > row['prev_upperband'] else row['upperband'], axis=1)
+# df['lowerband'] = df.apply(lambda row: min(row['lowerband'], row['prev_lowerband']) if row['prev_close'] < row['prev_lowerband'] else row['lowerband'], axis=1)
+
+# # Logic for trend change
+# df['trend'] = df.apply(lambda row: 1 if (row['prev_trend'] == -1 and row['close'] > row['prev_lowerband']) else
+#                                 -1 if (row['prev_trend'] == 1 and row['close'] < row['prev_upperband']) else row['prev_trend'], axis=1)
+
+# # Generate buy and sell signals
+# df['buy_signal'] = (df['trend'] == 1) & (df['trend'].shift(1) == -1)
+# df['sell_signal'] = (df['trend'] == -1) & (df['trend'].shift(1) == 1)
+
+# # Display relevant columns (close price, SuperTrend, buy/sell signals)
+# result = df[['close', 'upperband', 'lowerband', 'trend', 'buy_signal', 'sell_signal']]
+
+# import ace_tools as tools; tools.display_dataframe_to_user(name="SuperTrend Data", dataframe=result)
+
+# # Add your logic here to act on buy/sell signals

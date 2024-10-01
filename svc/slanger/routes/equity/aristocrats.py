@@ -2,16 +2,20 @@ from flask import Blueprint, jsonify, g
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import TimeInForce
 from config import api, app
+from utils.performance import timeit_ns
 
-equity_aristocrats = Blueprint('equity_aristocrats', __name__)
+equity_aristocrats = Blueprint("equity_aristocrats", __name__)
 
-# Dollar amount to trade. Cannot work with qty. Can only work for market order types and time_in_force = day.
+
 @equity_aristocrats.route("/aristocrats", methods=["POST"])
+@timeit_ns
 def order():
     """
-    purchase a dollar amount of a stock or ETF based on TradingView WebHook
-    this is a buy only strategy used for long term investing
-    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
+    - Places a simple market order of BUY based on TradingView WebHook
+    - If the action is not BUY, skip the webhook
+    - If the action is BUY, place a market order with the specified notional value
+    - Return a success message if the order is placed successfully
+    - Return an error message if the order placement fails
     """
     if g.data.get("action") == "buy":
         try:
@@ -26,13 +30,12 @@ def order():
             app.logger.debug("Market Data: %s", market_order_data)
             market_order = api.submit_order(order_data=market_order_data)
             app.logger.debug("Market Order: %s", market_order)
-            response_data = {"message": "Webhook received and processed successfully"}
+            response_data = {"message": "🟢🎩Aristocrats - order processed"}
             return jsonify(response_data), 200
         except Exception as e:
-            app.logger.error("Error processing request: %s", str(e))
-            error_message = {"error": "Failed to process webhook request"}
+            app.logger.error("🔴🎩Aristocrats - Error processing request: %s", str(e))
+            error_message = {"error": "🔴🎩Aristocrats - Failed to process webhook request"}
             return jsonify(error_message), 400
     else:
-        skip_message = {"Skip": "Skip webhook"}
+        skip_message = {"Skip": "🟡🎩Aristocrats - Skip webhook"}
         return jsonify(skip_message), 204
-

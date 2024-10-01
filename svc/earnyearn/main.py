@@ -189,7 +189,7 @@ def send_order(action, symbol, data):
         "risk": os.getenv("EARNYEARN_RISK", 0.001),
         "signature": tv_sig,
         "ticker": symbol,
-        "trailing": 1,
+        #"trailing": 1,
         "volume": data["Volume"].iloc[-1],
     }
 

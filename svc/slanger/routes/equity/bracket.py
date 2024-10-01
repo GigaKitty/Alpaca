@@ -15,45 +15,51 @@ equity_bracket = Blueprint("equity_bracket", __name__)
 @equity_bracket.route("/bracket", methods=["POST"])
 def place_order():
     """
-    Places a bracket order based on WebHook data
-    @SEE: https://alpaca.markets/docs/trading/getting_started/how-to-orders/#place-new-orders
-    @NOTE: This seems to do well when the market is really volatile for instance when the fed cuts the rates
+    - When there's an Open position and the side of the position is not the same as the action, close the position
+    - Calculate the stop price, stop limit price, and profit limit price based on the action
+    - Place a bracket order with the calculated prices
     """
     if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
         try:
-            # Cancel all open orders for the ticker
+            # Close all open orders and position for the symbol
             open_orders = order_utils.get_orders_for_ticker(g.data.get("ticker"))
 
+            # Cancel all open orders by ID
             for order in open_orders:
-                api.cancel_order_by_id(order['id'])
+                api.cancel_order_by_id(order["id"])
                 app.logger.debug(f"Cancelled order {order['id']}")
 
             # Close the position
             api.close_position(g.data.get("ticker"))
+            # Wait for the position to close
             position.wait_position_close(g.data, api)
         except Exception as e:
             app.logger.error(
-                f"Failed to close position for {g.data.get('ticker')}: {e}"
+                f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
             )
-            error_message = {"error": f"Failed to close position for {g.data.get('ticker')}: {e}"}
+            error_message = {
+                "error": f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
+            }
             return jsonify(error_message), 400
 
-        # Wait until the position is confirmed to be closed
         while True:
             try:
+                # get the position for the symbol
                 pos = api.get_position(g.data.get("ticker"))
                 if pos.qty == "0":
                     break
             except Exception:
-                break  # If the position is not found, it means it's closed
-            time.sleep(1)  # Wait for 1 second before checking again
+                break
 
     try:
-        calc_profit_limit_price = round(calc.profit_limit_price(g.data), 2)
-        calc_stop_price = round(calc.stop_price(g.data), 2)
-        calc_stop_limit_price = round(calc.stop_limit_price(g.data), 2)
-       
-        app.logger.debug("🦕 BRACKET %s on %s", g.data.get("action"), g.data.get("ticker"))
+        calc_profit_limit_price = calc.profit_limit_price(g.data)
+        calc_stop_limit_price = calc.stop_limit_price(g.data)
+        calc_stop_price = calc.stop_price(g.data)
+
+        app.logger.debug(
+            "🦕 BRACKET %s on %s", g.data.get("action"), g.data.get("ticker")
+        )
+        app.logger.debug("price: %s", g.data.get("price"))
         app.logger.debug("calc_profit_limit_price: %s", calc_profit_limit_price)
         app.logger.debug("calc_stop_price: %s", calc_stop_price)
         app.logger.debug("calc_stop_limit_price: %s", calc_stop_limit_price)
@@ -72,12 +78,13 @@ def place_order():
             ),
             client_order_id=g.data.get("order_id"),
         )
-        app.logger.debug("Order Data: %s", order_data)
+
+        app.logger.debug("🧾 Order Data: %s", order_data)
         order = api.submit_order(order_data=order_data)
-        app.logger.debug("Order: %s", order)
-        response_data = {"message": "Webhook received and processed successfully"}
+        app.logger.debug("🧾 Order: %s", order)
+        response_data = {"message": "🟢🦕Bracket order submitted"}
         return jsonify(response_data), 200
     except Exception as e:
-        app.logger.error("Error processing request: %s", str(e))
-        error_message = {"error": "Failed to process webhook request"}
+        app.logger.error("🔴 Error processing request for bracket 🦕 order: %s", str(e))
+        error_message = {"error": "🔴 Failed to process webhook request for bracket 🦕"}
         return jsonify(error_message), 400

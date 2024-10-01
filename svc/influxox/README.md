@@ -1,0 +1,1 @@
+Service saves market data into influx db for grafana visualization

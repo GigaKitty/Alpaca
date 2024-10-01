@@ -34,3 +34,5 @@ tzdata==2023.3
 urllib3==1.26.16
 websockets==11.0.3
 coloredlogs==15.0.1
+influxdb-client==1.46.0 
+pifx==1.0.1 

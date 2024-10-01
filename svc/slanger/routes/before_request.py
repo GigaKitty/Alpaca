@@ -1,8 +1,7 @@
 from config import app, api
 from flask import request, jsonify, g
 from utils import sec, account, position, calc, order
-
-SKIP_ENDPOINTS = ['metrics_endpoint', 'health_check', 'health_check_liveness', 'health_check_readiness', 'health_check_startup']
+from config import SKIP_ENDPOINTS
 
 @app.before_request
 def preprocess():
@@ -24,9 +23,9 @@ def preprocess():
     # Hack Time
     clock = api.get_clock()
 
-    # Reject after hours orders
-    if not clock.is_open and (request.endpoint is None or not request.endpoint.startswith('crypto')):
-        return jsonify({"Market Closed": "Market is closed"}), 400
+    # Reject after hours equity orders
+    if not clock.is_open and (request.endpoint is None or request.endpoint.startswith(('equity'))):
+        return jsonify({"Market Closed": "Market is closed or order is not valid"}), 400
     
     # Set the global data to the request.json
     g.data = request.json

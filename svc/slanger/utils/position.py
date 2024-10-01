@@ -2,6 +2,7 @@ from flask import request, jsonify
 from config import api, app
 import time
 
+
 ############################################################
 # Gets currently open position for ticker
 def get_position(data, api) -> bool:
@@ -17,6 +18,7 @@ def get_position(data, api) -> bool:
             return position
     except Exception as e:
         return False
+
 
 def wait_position_close(data, api, timeout=60):
     """
@@ -43,8 +45,10 @@ def wait_position_close(data, api, timeout=60):
 
         app.logger.info(f"Position for {ticker} is still open. Checking again ...")
 
-    app.logger.error(f"Timeout: Position for {ticker} did not close within {timeout} seconds.")
-    
+    app.logger.error(
+        f"Timeout: Position for {ticker} did not close within {timeout} seconds."
+    )
+
     return False
 
 
@@ -76,6 +80,7 @@ def opps(data, api):
             action = "buy"
 
     return action
+
 
 # @TODO: deprecated
 # def sp(data, api):
@@ -118,7 +123,7 @@ def opps(data, api):
 #         profit_margin = float(pos.market_value) * data.get("profit_margin", 0.03)
 #     else:
 #         profit_margin = float(pos.market_value) * data.get("profit_margin", 0.0001)
-    
+
 #     # make position.side lowercase for comparison with action returns long or short
 #     side = pos.side.lower()
 
