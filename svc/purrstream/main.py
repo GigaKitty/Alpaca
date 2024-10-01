@@ -98,6 +98,164 @@ async def broadcast(message, channel):
     await redis_client.publish(channel, message)
 
 
+async def account_socket():
+    wss_account_url = "wss://paper-api.alpaca.markets/stream"
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_account_url) as websocket:
+            # Send authentication request
+            await websocket.send_str(auth_message)
+
+            # Receive authentication response
+            response = await websocket.receive()
+            if response.type == aiohttp.WSMsgType.TEXT:
+                response_text = response.data
+            elif response.type == aiohttp.WSMsgType.BINARY:
+                response_text = response.data.decode("utf-8")
+            else:
+                logging.error(f"Unexpected message type: {response.type}")
+                return
+
+            logging.info(f"Account authentication response: {response_text}")
+
+            try:
+                response_data = json.loads(response_text)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
+
+            print(response_data)
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                subscription_message = json.dumps(
+                    {"action": "listen", "data": {"streams": ["trade_updates"]}}
+                )
+                logging.info(
+                    "Trade authentication successful. Connected to the WebSocket."
+                )
+                await websocket.send_str(subscription_message)
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        logging.info(f"Account data: {data}")
+                        await broadcast(data, "account_channel")
+                    elif msg.type == aiohttp.WSMsgType.BINARY:
+                        data = msg.data.decode("utf-8")
+                        # logging.info(f"Stocks data: {data}")
+                        await broadcast(data, "account_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("Account WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error(f"WebSocket error: {msg.data}")
+                        break
+
+
+async def crypto_socket():
+    """
+    @SEE: https://docs.alpaca.markets/docs/real-time-crypto-pr!
+    """
+    wss_crypto_url = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_crypto_url) as websocket:
+            await websocket.send_str(auth_message)
+
+            response = await websocket.receive_str()
+            logging.info(f"Crypto authentication response: {response}")
+
+            try:
+                response_data = json.loads(response)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
+
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                subscription_message = json.dumps(
+                    {
+                        "action": "subscribe",
+                        "trades": ["*"],
+                        "quotes": ["*"],123547
+                        "bars": ["*"],
+                        "updatedBars": ["*"],
+                        "dailyBars": ["*"],
+                        "orderbooks": ["*"],
+                    }
+                )
+                logging.info(
+                    "Crypto authentication successful. Connected to the WebSocket."
+                )
+                await websocket.send_str(subscription_message)
+
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        # logging.info(f"Crypto data: {data}")
+                        await broadcast(data, "crypto_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("Crypto WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error("WebSocket error: {msg.data}")
+                        break
+            else:
+                logging.error("Crypto authentication failed.")
+
+
+async def stocks_socket():
+    """
+    @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data#schema-2
+    """
+    wss_stocks_url = "wss://stream.data.alpaca.markets/v2/sip"
+    api_key = os.getenv("APCA_API_KEY_ID")
+    api_sec = os.getenv("APCA_API_SECRET_KEY")
+    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
+
+    async with aiohttp.ClientSession() as session:
+        async with session.ws_connect(wss_stocks_url) as websocket:
+            await websocket.send_str(auth_message)
+
+            response = await websocket.receive_str()
+            logging.info(f"Stocks authentication response: {response}")
+
+            try:
+                response_data = json.loads(response)
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received in the authentication response.")
+                return
+
+            if (
+                isinstance(response_data, list)
+                and response_data[0].get("T") == "success"
+            ):
+                asyncio.create_task(update_list_periodically(60, websocket))
+
+                async for msg in websocket:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.data
+                        # logging.info(f"Stocks data: {data}")
+                        await broadcast(data, "stocks_channel")
+                    elif msg.type == aiohttp.WSMsgType.CLOSED:
+                        logging.info("Stocks WebSocket connection closed")
+                        break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logging.error(f"WebSocket error: {msg.data}")
+                        break
+            else:
+                logging.error("Stocks authentication failed.")
+
+
 async def news_socket():
     """
     @SEE: https://docs.alpaca.markets/docs/streaming-real-time-news
@@ -135,7 +293,7 @@ async def news_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        #logging.info(f"News data: {data}")
+                        # logging.info(f"News data: {data}")
                         await broadcast(data, "news_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("News WebSocket connection closed")
@@ -147,113 +305,13 @@ async def news_socket():
                 logging.error("News authentication failed.")
 
 
-async def stocks_socket():
-    """
-    @SEE: https://docs.alpaca.markets/docs/real-time-stock-pricing-data#schema-2
-    """
-    wss_stocks_url = "wss://stream.data.alpaca.markets/v2/sip"
-    api_key = os.getenv("APCA_API_KEY_ID")
-    api_sec = os.getenv("APCA_API_SECRET_KEY")
-    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
-
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(wss_stocks_url) as websocket:
-            await websocket.send_str(auth_message)
-
-            response = await websocket.receive_str()
-            logging.info(f"Stocks authentication response: {response}")
-
-            try:
-                response_data = json.loads(response)
-            except json.JSONDecodeError:
-                logging.error("Invalid JSON received in the authentication response.")
-                return
-
-            if (
-                isinstance(response_data, list)
-                and response_data[0].get("T") == "success"
-            ):
-                asyncio.create_task(update_list_periodically(60, websocket))
-
-                async for msg in websocket:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        data = msg.data
-                        #logging.info(f"Stocks data: {data}")
-                        await broadcast(data, "stocks_channel")
-                    elif msg.type == aiohttp.WSMsgType.CLOSED:
-                        logging.info("Stocks WebSocket connection closed")
-                        break
-                    elif msg.type == aiohttp.WSMsgType.ERROR:
-                        logging.error(f"WebSocket error: {msg.data}")
-                        break
-            else:
-                logging.error("Stocks authentication failed.")
-
-
-async def crypto_socket():
-    """
-    @SEE: https://docs.alpaca.markets/docs/real-time-crypto-pr!
-    """
-    wss_crypto_url = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
-    api_key = os.getenv("APCA_API_KEY_ID")
-    api_sec = os.getenv("APCA_API_SECRET_KEY")
-    auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
-
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(wss_crypto_url) as websocket:
-            await websocket.send_str(auth_message)
-
-            response = await websocket.receive_str()
-            logging.info(f"Crypto authentication response: {response}")
-
-            try:
-                response_data = json.loads(response)
-            except json.JSONDecodeError:
-                logging.error("Invalid JSON received in the authentication response.")
-                return
-
-            if (
-                isinstance(response_data, list)
-                and response_data[0].get("T") == "success"
-            ):
-                subscription_message = json.dumps(
-                    {
-                        "action": "subscribe",
-                        "trades": ["*"],
-                        "quotes": ["*"],
-                        "bars": ["*"],
-                        "updatedBars": ["*"],
-                        "dailyBars": ["*"],
-                        "orderbooks": ["*"],
-                    }
-                )
-                logging.info(
-                    "Crypto authentication successful. Connected to the WebSocket."
-                )
-                await websocket.send_str(subscription_message)
-
-                async for msg in websocket:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        data = msg.data
-                        #logging.info(f"Crypto data: {data}")
-                        await broadcast(data, "crypto_channel")
-                    elif msg.type == aiohttp.WSMsgType.CLOSED:
-                        logging.info("Crypto WebSocket connection closed")
-                        break
-                    elif msg.type == aiohttp.WSMsgType.ERROR:
-                        logging.error("WebSocket error: {msg.data}")
-                        break
-            else:
-                logging.error("Crypto authentication failed.")
-
-
 async def main():
-    # commented out until I can get the premium again or have a crypto strategy
+    account_task = account_socket()
     crypto_task = crypto_socket()
     news_task = news_socket()
     stocks_task = stocks_socket()
 
-    await asyncio.gather(crypto_task, news_task, stocks_task)
+    await asyncio.gather(account_task, crypto_task, news_task, stocks_task)
 
 
 if __name__ == "__main__":
