@@ -2,10 +2,11 @@ import time
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 from functools import wraps
+import os
 
 bucket = "slanger_metrics"
 org = "org"
-token = "vqZtZlxR-jWDAbpZLjFv56ScejS9ARjtGSTGhnPjugIJ2Y1MBZ1d2S5YkkwRXr6Y38T28EL2oJLLSVhiu1wYGw=="
+token = os.getenv("SLANGER_INFLUXDB_TOKEN")
 url = "http://influxdb:8086"
 
 client = InfluxDBClient(url=url, token=token, org=org)
