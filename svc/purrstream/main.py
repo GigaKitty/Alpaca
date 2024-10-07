@@ -6,6 +6,8 @@ import logging
 import os
 import redis.asyncio as aioredis
 
+REGULARS = ['SPY']
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -13,8 +15,7 @@ connected_clients = set()
 
 # Connect to Redis
 redis_host = os.getenv("REDIS_HOST", "localhost")
-redis_port = int(os.getenv("REDIS_PORT", 6379))
-# redis_client = aioredis.StrictRedis(host=redis_host, port=redis_port, db=0)
+redis_port = 6379
 
 redis_client = aioredis.from_url(
     f"redis://{redis_host}:{redis_port}",
@@ -33,6 +34,7 @@ async def update_list_periodically(update_interval, websocket):
         ticker_list = ["aristocrats_list", "earnings_list", "volatilityvulture_list"]
         logging.debug(f"skip_list: {ticker_list}")
         ticker_list = await get_list(ticker_list)
+        ticker_list = ticker_list + REGULARS
 
         logging.info(f"Updating subscription to the following tickers: {ticker_list}")
         subscription_message = json.dumps(
@@ -49,8 +51,8 @@ async def update_list_periodically(update_interval, websocket):
             await asyncio.sleep(update_interval)
         except ConnectionResetError:
             # Reconnect logic here
-            websocket = await connect_to_websocket()
-
+            websocket = await handle_connection(request)
+            logging.error("Connection reset. Reconnecting...")
 
 async def get_list(ticker_list):
     combined_list = []
@@ -186,7 +188,7 @@ async def crypto_socket():
                     {
                         "action": "subscribe",
                         "trades": ["*"],
-                        "quotes": ["*"],123547
+                        "quotes": ["*"],
                         "bars": ["*"],
                         "updatedBars": ["*"],
                         "dailyBars": ["*"],

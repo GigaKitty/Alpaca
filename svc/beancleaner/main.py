@@ -125,7 +125,7 @@ async def main():
     """
     scheduler = AsyncIOScheduler(timezone=est)
     logging.info("Starting the bean cleaner service")
-    trigger = CronTrigger(day_of_week="mon-fri", hour=15, minute=59, timezone=est)
+    trigger = CronTrigger(day_of_week="mon-fri", hour=16, minute=59, timezone=est)
     logging.info(f"Bean cleaner scheduled to run at {trigger}")
     scheduler.add_job(clean_the_bean, trigger)
     await scheduler_task(scheduler)

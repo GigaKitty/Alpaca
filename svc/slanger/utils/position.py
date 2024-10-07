@@ -30,26 +30,26 @@ def wait_position_close(data, api, timeout=60):
     """
     ticker = data.get("ticker")
     start_time = time.time()
+    response_data = {"order": "order closed"}
 
     # Wait until the position is closed for the specified timeout duration in seconds
     while time.time() - start_time < timeout:
         try:
             position = get_position(data, api)
-            app.logger.debug(f"Position: {position}")
+            if position is False:
+                app.logger.info(f"Position for {ticker} is closed.")
+                return True
             if position is not None and position.qty == 0:
                 app.logger.info(f"Position for {ticker} is closed.")
                 return True
         except Exception as e:
             app.logger.error(f"Error checking position status for {ticker}: {e}")
             return False
-
         app.logger.info(f"Position for {ticker} is still open. Checking again ...")
-
+    
     app.logger.error(
         f"Timeout: Position for {ticker} did not close within {timeout} seconds."
     )
-
-    return False
 
 
 def get_current_price(data, api):

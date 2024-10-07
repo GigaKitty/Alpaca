@@ -45,11 +45,10 @@ pd.set_option("display.max_rows", None)
 
 
 r = redis.Redis(host="redis-stack-core", port=6379)
-print(r.ping())
 
 # Redis connection details
-redis_host = os.getenv("REDIS_HOST", "localhost")
-redis_port = int(os.getenv("REDIS_PORT", 6379))
+redis_host = os.getenv("REDIS_HOST", "redis-stack")
+redis_port = 6379
 redis = aioredis.Redis(
     host=redis_host,
     port=redis_port,
@@ -325,7 +324,7 @@ def parse_datetime(dt_str):
         logging.error(f"Error parsing datetime: {e}")
         return None
 
-
+# #@TODO: move this into a different service so all symbols are added to marketstore
 async def store_in_marketstore(data):
     """
     Store the data in Marketstore.
@@ -435,7 +434,7 @@ async def process_message(redis, message):
         if ticker:
             print(f"Processing message for {ticker}: {item}")
             await redis.lpush(f"logs:{ticker}", json.dumps(item))
-            await store_in_marketstore(item)
+            #await store_in_marketstore(item)
             market_data = await read_data_from_marketstore(item)
             await calc_strat(ticker, market_data)
 

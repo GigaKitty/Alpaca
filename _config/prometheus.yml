@@ -31,11 +31,11 @@ scrape_configs:
     scheme: https
     static_configs:
       - targets:
-        - "dev.haxor.space"
+        - "${SLANGER_DEV}"
 
   - job_name: "slanger-main"
     metrics_path: "/metrics"
     scheme: https
     static_configs:
       - targets: 
-        - "main.haxor.space"
+        - "${SLANGER_MAIN}"

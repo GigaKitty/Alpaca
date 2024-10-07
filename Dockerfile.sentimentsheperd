@@ -1,0 +1,26 @@
+# Use an official CUDA runtime as a parent image
+FROM nvidia/cuda:12.6.1-cudnn8-runtime-ubuntu20.04
+
+# Set the working directory in the container
+WORKDIR /app
+
+
+ARG SVC_DIR
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ${SVC_DIR} /app/
+RUN python -m pip install --upgrade pip
+RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
+EXPOSE 6379
+# Define environment variable
+ENV REDIS_HOST=redis-stack
+ENV REDIS_PORT=6379
+# Run main.py when the container launches
+CMD ["python", "main.py"]

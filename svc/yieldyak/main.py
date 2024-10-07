@@ -61,11 +61,15 @@ def add_google_calendar_event(summary, description, start_time, end_time):
         "summary": summary,
         "description": description,
         "start": {
-            "dateTime": start_time.astimezone(timezone("America/Los_Angeles")).isoformat(),
+            "dateTime": start_time.astimezone(
+                timezone("America/Los_Angeles")
+            ).isoformat(),
             "timeZone": "America/Los_Angeles",
         },
         "end": {
-            "dateTime": end_time.astimezone(timezone("America/Los_Angeles")).isoformat(),
+            "dateTime": end_time.astimezone(
+                timezone("America/Los_Angeles")
+            ).isoformat(),
             "timeZone": "America/Los_Angeles",
         },
     }
@@ -575,7 +579,7 @@ async def main():
 
     # Add Google Calendar event
     table = format_data_as_table(data)
-    start_time = datetime.now(tz).replace(hour=20, minute=0, second=0, microsecond=0)
+    start_time = datetime.now(tz).replace(hour=16, minute=0, second=0, microsecond=0)
     end_time = start_time + timedelta(
         minutes=15
     )  # Set the event duration to 15 minutes
@@ -596,17 +600,13 @@ def run_scheduler():
         main,
         "cron",
         day_of_week="mon-fri",
-        hour=18,
+        hour=16,
         minute=00,
         timezone="America/New_York",
     )
     scheduler.start()
-    print("Scheduler started")
     try:
         loop = asyncio.get_event_loop()
-        if os.getenv("DEBUG", False):
-            loop.run_until_complete(main())
-
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit):
         pass

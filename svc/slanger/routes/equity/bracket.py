@@ -8,48 +8,51 @@ from alpaca.trading.requests import (
 from alpaca.trading.enums import TimeInForce
 from config import api, app
 from utils import calc, order as order_utils, position
+from utils.performance import timeit_ns
+
 
 equity_bracket = Blueprint("equity_bracket", __name__)
 
 
 @equity_bracket.route("/bracket", methods=["POST"])
-def place_order():
+@timeit_ns
+def bracket():
     """
     - When there's an Open position and the side of the position is not the same as the action, close the position
     - Calculate the stop price, stop limit price, and profit limit price based on the action
     - Place a bracket order with the calculated prices
     """
-    if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
-        try:
-            # Close all open orders and position for the symbol
-            open_orders = order_utils.get_orders_for_ticker(g.data.get("ticker"))
+    # if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"):
+    #     try:
+    #         # Close all open orders and position for the symbol
+    #         open_orders = order_utils.get_orders_for_ticker(g.data.get("ticker"))
 
-            # Cancel all open orders by ID
-            for order in open_orders:
-                api.cancel_order_by_id(order["id"])
-                app.logger.debug(f"Cancelled order {order['id']}")
+    #         # Cancel all open orders by ID
+    #         for order in open_orders:
+    #             api.cancel_order_by_id(order["id"])
+    #             app.logger.debug(f"Cancelled order {order['id']}")
 
-            # Close the position
-            api.close_position(g.data.get("ticker"))
-            # Wait for the position to close
-            position.wait_position_close(g.data, api)
-        except Exception as e:
-            app.logger.error(
-                f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
-            )
-            error_message = {
-                "error": f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
-            }
-            return jsonify(error_message), 400
+    #         # Close the position
+    #         api.close_position(g.data.get("ticker"))
+    #         # Wait for the position to close
+    #         position.wait_position_close(g.data, api)
+    #     except Exception as e:
+    #         app.logger.error(
+    #             f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
+    #         )
+    #         error_message = {
+    #             "error": f"🔴 Failed to close position for {g.data.get('ticker')}: {e}"
+    #         }
+    #         return jsonify(error_message), 400
 
-        while True:
-            try:
-                # get the position for the symbol
-                pos = api.get_position(g.data.get("ticker"))
-                if pos.qty == "0":
-                    break
-            except Exception:
-                break
+    #     while True:
+    #         try:
+    #             # get the position for the symbol
+    #             pos = api.get_position(g.data.get("ticker"))
+    #             if pos.qty == "0":
+    #                 break
+    #         except Exception:
+    #             break
 
     try:
         calc_profit_limit_price = calc.profit_limit_price(g.data)

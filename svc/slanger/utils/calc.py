@@ -47,13 +47,7 @@ def qty(data):
 
     if buying_power > 0:
         buying_power = round(buying_power * data["risk"])
-        if data.get("side") == "buy":
-            price = round(float(data.get("low")), 1)
-        elif data.get("side") == "sell":
-            price = round(float(data.get("high")), 1)
-        else:
-            price = round(float(data.get("open")), 1)
-
+        price = round(float(data.get("price")))
         qty = round(buying_power / price)
     else:
         qty = 1
@@ -78,6 +72,10 @@ def qty_available(data, api):
             app.logger.error(f"Error: is not a valid number.")
             return None
     app.logger.debug(f"Quantity Available: {qty_available}")
+    
+    if qty_available is None:
+        return 0
+    
     return qty_available
 
 
@@ -181,7 +179,10 @@ def stop_limit_price(data: dict) -> float:
         price = round(float(data.get("high")), 2)
         return round(float(price * data.get("stop_limit_price_sell", 1.001)), 2)
 
+
 6
+
+
 def limit_price(data: dict) -> float:
     """
     - Calculate the limit price based on the action specified in the data.

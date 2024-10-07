@@ -1,9 +1,42 @@
-from config import app, api
+from config import app, api, SKIP_ENDPOINTS, PREPROCESS
 from flask import request, jsonify, g
 from utils import sec, account, position, calc, order
-from config import SKIP_ENDPOINTS
+from utils.performance import timeit_ns
+
+
+###################
+# Below is the start of preprocess functions that can be added at the webhook level.
+# These functions are called before the order is processed.
+###################
+def buy_side_only(data):
+    """
+    Close all open orders for the symbol
+    Do nothing if the action is sell and there is no position
+    """
+    if data.get("pos") is False and data.get("action") == "sell":
+        response_data = {"order": "order skipped"}
+        return jsonify(response_data), 200
+    elif (
+        data.get("pos") is not False
+        and data.get("side") != data.get("action")
+        and data.get("action") == "sell"
+    ):
+        try:
+            api.close_position(data.get("ticker"))
+            position.wait_position_close(data, api)
+            response_data = {"order": "position closed"}
+            g.data["pos"] = False
+            return jsonify(response_data), 200
+        except Exception as e:
+            app.logger.error(f"Failed to close position for {data.get('ticker')}: {e}")
+            error_message = {
+                "error": f"Failed to close position for {data.get('ticker')}: {e}"
+            }
+            return jsonify(error_message), 400
+
 
 @app.before_request
+@timeit_ns
 def preprocess():
     """
     Add an orders before_request to handle preprocessing.
@@ -13,65 +46,68 @@ def preprocess():
     Essentailly, it's to preprocess the Data object and set defaults before it's sent to the order endpoints.
     Keep it fast and simple......
     """
-    app.logger.debug("Headers: %s", request.headers)
-    app.logger.debug("Body: %s", request.get_data())
-
-    # Skip endpoints in the list
-    if request.endpoint in SKIP_ENDPOINTS:
-        return
-    
-    # Hack Time
-    clock = api.get_clock()
-
-    # Reject after hours equity orders
-    if not clock.is_open and (request.endpoint is None or request.endpoint.startswith(('equity'))):
-        return jsonify({"Market Closed": "Market is closed or order is not valid"}), 400
-    
     # Set the global data to the request.json
     g.data = request.json
 
-    # Validate the signature of the request coming in
-    if sec.validate_signature(g.data) != True and request.endpoint not in ['health', 'metrics']:
+    # Exit Early fail often 🦉 Validate the signature of the request coming in
+    if sec.authorize(g.data) != True and request.endpoint not in ["health", "metrics"]:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
-    # Setup account details
-    g.data["acc"] = account.get_account(g.data, api)
+    # Skip endpoints in the list 🦘
+    if request.endpoint in SKIP_ENDPOINTS:
+        return jsonify({"Skip endpoint": "🦘 Skipping from skip list"}), 400
 
-    # Get current position for symbol
-    g.data["pos"] = position.get_position(g.data, api)
+    # Hack Time 😎
+    clock = api.get_clock()
 
-    # @NOTE: qty and notional depend on risk so we calculate risk first
-    g.data["action"] = g.data.get("action", "buy")
-    g.data["limit_price"] =  round(calc.limit_price(g.data), 2)
-    g.data["risk"] = g.data.get("risk", calc.risk(g.data))
-    g.data["notional"] = g.data.get("notional", calc.notional(g.data))
-    g.data["profit"] = g.data.get("profit", calc.profit(g.data)) 
-    g.data["qty"] = g.data.get("qty", calc.qty(g.data))
-    g.data["qty_available"] = g.data.get("qty_available", calc.qty_available(g.data, api))
-    g.data["side"] = g.data.get("side", calc.side(g.data))
-    g.data["trail_percent"] = g.data.get("trail_percent", calc.trail_percent(g.data))
+    # Reject after hours equity orders 🫷
+    if not clock.is_open and (
+        request.endpoint is None or request.endpoint.startswith(("equity"))
+    ):
+        return jsonify({"Market Closed": "📉 Market is closed for equity orders"}), 400
+
+    #####################
+    # Prepare thy data 😇
+    #####################
+    # Static data
+    g.data["acc"] = account.get_account(g.data, api)  # Setup account details
+    g.data["pos"] = position.get_position(
+        g.data, api
+    )  # Get current position for symbol
+
+    # Calc data
+    g.data["risk"] = calc.risk(
+        g.data
+    )  # @NOTE: Risk needs to be calculated first before qty and notional
+    g.data["limit_price"] = calc.limit_price(g.data)
+    g.data["notional"] = calc.notional(g.data)
+    g.data["profit"] = calc.profit(g.data)
+    g.data["qty_available"] = calc.qty_available(g.data, api)
+    g.data["qty"] = calc.qty(g.data)
+    g.data["side"] = calc.side(g.data)
+    g.data["trail_percent"] = calc.trail_percent(g.data)
     g.data["trailing"] = calc.trailing(g.data)
-    g.data["opps"] = g.data.get("opps", position.opps(g.data, api))
-    
-    #@TODO make this an option
-    g.data["entry_interval"] = g.data.get("entry_interval", "1m")
-    g.data["exit_interval"] = g.data.get("exit_interval", "1m")
 
-    # Order
+    # Override the data object with the POST data
+    g.data["opps"] = position.opps(g.data, api)
     g.data["order_id"] = order.gen_id(g.data, 10)
-    g.data["order_entry_interval"] = g.data.get("order_entry_interval", "1m")
 
-    # Other
     g.data["after_hours"] = g.data.get("after_hours", False)
-    g.data["comment"] = g.data.get("comment", "nocomment")
-    g.data["interval"] = g.data.get("interval", "nointerval")
+    g.data["comment"] = g.data.get("comment", "🤐")
+    g.data["interval"] = g.data.get("interval", "🔕")
 
-    # At the end so we can see the results
-    #app.logger.debug("Data: %s", g.data)
+    # This will run some operations before the order is processed
+    # Actions like closing orders, etc.
+    # Preprocess functions are ran after the global data operations are done
+    # and g.data.get("preprocess") in PREPROCESS
+    preprocess_list = g.data.get("preprocess")
+    if isinstance(preprocess_list, list) and any(
+        item in PREPROCESS for item in preprocess_list
+    ):
+        for func in preprocess_list:
+            if func == "buy_side_only":
+                result = buy_side_only(g.data)
+                return result
 
-    # Needs to be last so we can see the results
-    # skip sp if reverse type order
-    # @TODO: make this a whitelist instead of a blacklist
-    #if g.data.get("sp") != "skip" or request.endpoint not in ['reverse', 'trailing', 'tieredfiblimit']:
-      #  g.data["sp"] = g.data.get("sp", position.sp(g.data, api))
-
+    # Uncomment to debug the data object
+    # app.logger.debug("📭 Data: %s", g.data)

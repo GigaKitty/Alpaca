@@ -3,118 +3,47 @@ import os
 import time
 import asyncio
 import redis.asyncio as aioredis
-from openai import OpenAI
+from rich.console import Console
+from rich.table import Table
+from transformers import pipeline
+from concurrent.futures import ThreadPoolExecutor
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+console = Console()
 
 # Redis connection details
-redis_host = os.getenv("REDIS_HOST", "localhost")
-redis_port = int(os.getenv("REDIS_PORT", 6379))
+redis_host = os.getenv("REDIS_HOST", "redis-stack")
+redis_port = 6379
 
+# Initialize multiple sentiment analysis pipelines
+models = [
+    "distilbert-base-uncased-finetuned-sst-2-english",
+    "nlptown/bert-base-multilingual-uncased-sentiment",
+    "cardiffnlp/twitter-roberta-base-sentiment",
+]
 
-def wait_on_run(run, thread):
-    while run.status == "queued" or run.status == "in_progress":
-        run = client.beta.threads.runs.retrieve(
-            thread_id=thread.id,
-            run_id=run.id,
+def analyze_sentiment(text):
+    scores = []
+    for analyzer in sentiment_analyzers:
+        result = analyzer(text)[0]
+        score = (
+            result["score"]
+            if result["label"] in ["POSITIVE", "5 stars", "LABEL_2"]
+            else -result["score"]
         )
-        time.sleep(0.5)
-    return run
+        scores.append(score)
+    aggregated_score = sum(scores) / len(scores)
+    return aggregated_score
 
 
-def init_assistant(assistant_name):
-    # List all existing assistants
-    assistants = client.beta.assistants.list()
-
-    # Check if the assistant already exists
-    if assistants.data:
-        for assistant in assistants.data:
-            if assistant.name == assistant_name:
-                print(f"Assistant '{assistant_name}' already exists.")
-                thread = client.beta.threads.create()
-                return assistant, thread
-    else:
-        instructions = """
-        You add a sentiment score scaled from -100 (negative) to +100 (positive).
-        You are a brilliant investor that consumes headlines in the form of JSON data.
-        You follow the links to these headlines and consume the  content and add that information to your overall sentiment score.
-        You return only JSON with this added sentiment score.
-        You take this JSON and analyze it to perform a sentiment score for each ticker of buy or sell of the asset and add that to the existing data json object as a new field.
-        You also produce a summary or reason for sentiment on each ticker>
-        You will remember previous messages in this thread and cross-examine that information in an efficient but accurate manner.
-        You add a predicted time horizon in hours along with sentiment_score for the news to take effect for example it's predicted to change immediately or in a few week
-        """
-        assistant = client.beta.assistants.create(
-            name=assistant_name,
-            instructions=instructions.strip().replace("\n", ""),
-            model="gpt-4-turbo-preview",
-        )
-
-        print(f"Assistant '{assistant.name}' created.")
-        print(f"Assistant ID: {assistant.id}")
-        print(f"Assistant Instructions: {assistant.instructions}")
-        thread = client.beta.threads.create()
-        print(f"Thread ID: {thread.id}")
-
-        return assistant, thread
+async def process_message(message):
+    if message["type"] == "message":
+        article = json.loads(message["data"])
+        sentiment = analyze_sentiment(article["content"])
+        article["sentiment"] = sentiment
+        display_in_cli(article)
 
 
-async def prompt_gpt(assistant, thread, data):
-    print("============================================================")
-    print("Prompting GPT-4 with the following data:")
-    print(f"Data: {data}")
-    print(f"Thread ID: {thread.id}")
-    print(f"Assistant ID: {assistant.id}")
-    print("============================================================")
-
-    # message = client.beta.threads.messages.create(
-    #    thread_id=thread.id, role="user", content=json.dumps(data)
-    # )
-
-    # run = client.beta.threads.runs.create(
-    #    thread_id=thread.id, assistant_id=assistant.id
-    # )
-
-    ## Wait for completion
-    # run = wait_on_run(run, thread)
-
-    ## Retrieve all the messages added after our last user message
-    # messages = client.beta.threads.messages.list(
-    #    thread_id=thread.id, order="asc", after=message.id
-    # )
-
-    # for msg in messages.data:
-    #    if msg.role == "assistant":
-    #        content = msg.content
-    #        print(f"Assistant response content: {content}")
-    #        if isinstance(content, str):
-    #            try:
-    #                return json.loads(content)
-    #            except json.JSONDecodeError as e:
-    #                print(f"Error decoding JSON: {e}")
-    #                return None
-    #        elif isinstance(content, list):
-    #            try:
-    #                return [
-    #                    json.loads(item) for item in content if isinstance(item, str)
-    #                ]
-    #            except json.JSONDecodeError as e:
-    #                print(f"Error decoding JSON list item: {e}")
-    #                return None
-
-    # return None
-async def monitor_price(data):
-    print('wut')
-    # If the sentiment score is greater than 50, we will place a buy order
-    # If the sentiment score is less than 50, we will place a sell order
-    # If the sentiment score is 50, we will do nothing
-    # We will also monitor the price of the asset and update the sentiment score if the price changes
-    #
-    # Add ticker to the websocket to monitor for volatility
-    # stream price data for the ticker and apply pandas ta
-    
-
-async def redis_listener(assistant, thread):
+async def redis_listener():
     redis = aioredis.from_url(
         f"redis://{redis_host}:{redis_port}",
         encoding="utf-8",
@@ -126,16 +55,20 @@ async def redis_listener(assistant, thread):
     async for message in pubsub.listen():
         if message["type"] == "message":
             data = message["data"]
-            await prompt_gpt(assistant, thread, data)
+            display_in_cli(data)
+
+
+def display_in_cli(article):
+    table = Table(title="News Article")
+    table.add_column("Title", style="bold")
+    table.add_column("Content")
+    table.add_column("Timestamp")
+    table.add_row(article["title"], article["content"], article["timestamp"])
+    console.print(table)
 
 
 async def main():
-    assistant_name = "{}-{}".format(
-        os.getenv("SERVICE_NAME", "sentimentsheperd"),
-        os.getenv("ENVIRONMENT", "dev"),
-    )
-    assistant, thread = init_assistant(assistant_name)
-    await asyncio.gather(redis_listener(assistant, thread))
+    await asyncio.gather(redis_listener())
 
 
 if __name__ == "__main__":

@@ -1,30 +1,40 @@
 from flask import redirect, render_template, Flask, request, abort
 import os
 import ssl
+import hmac
+import hashlib
 
-# Validates the signature from TradingView
-# @TODO: This should be updated to check SSL and/or IP so we can remove signature from the webhook
+
 def validate_signature(data):
     """
     Validates a simple field value in the webhook to continue processing webhook otherwise fails.
     This isn't the most elegant solution but it adds some safety controls to arbitrary requests.
-    We can further improve upon this by validating the request is legitimately coming from TradingView using SSL and/or at least IP
     Set the environment variable TRADINGVIEW_SECRET to the secret key from TradingView
     """
     signature = os.getenv("TRADINGVIEW_SECRET", False)
 
     if signature is False:
+        #app.logger.error("TRADINGVIEW_SECRET environment variable not set")
         return render_template("404.html"), 404
 
     # Check if data is a dictionary
     if not isinstance(data, dict):
+        #app.logger.error("Invalid data format: not a dictionary")
         return render_template("404.html"), 404
 
     # Check if data contains a "signature" key
     if "signature" not in data:
+        #app.logger.error("Missing signature in data")
         return render_template("404.html"), 404
 
-    if signature != data.get("signature"):
+    provided_signature = data.get("signature")
+    message = str(data).encode("utf-8")
+    secret = signature.encode("utf-8")
+    expected_signature = hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+    # Constant-time comparison
+    if not hmac.compare_digest(provided_signature, expected_signature):
+        #app.logger.error("Invalid signature")
         return render_template("404.html"), 404
     else:
         return True
@@ -60,17 +70,21 @@ def validate_certificate():
     except Exception as e:
         abort(403)  # Invalid certificate
 
-    # Process the webhook payload
-    data = request.json
-    # Handle the webhook data as needed
-    return "Webhook received", 200
-
+    return True
 
 def sanitize_data(data):
     sanitized = {}
     for key, value in data.items():
         if key.lower() in os.getenv("SENSITIVE_KEYS", "").split(","):
-            sanitized[key] = '***REDACTED***'
+            sanitized[key] = "***REDACTED***"
         else:
             sanitized[key] = value
     return sanitized
+
+2
+def authorize(data):
+    #if validate_certificate() and validate_signature(data):
+    if validate_signature(data):
+        return True
+    else:
+        return False

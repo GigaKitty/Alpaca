@@ -1,50 +1,34 @@
+
 from config import app
-from flask import Flask, render_template, request
-
-# Import default routes
+from flask import Flask, Blueprint, render_template, request, jsonify, g
 from routes import health, before_request, after_request, error_handler
+import importlib
+import os
 
-# Import routes for crypto
-from routes.crypto.limit import crypto_limit
-from routes.crypto.market import crypto_market
-from routes.crypto.notional import crypto_notional
-from routes.crypto.stop_limit import crypto_stop_limit
+def register_routes(app, package_name, package_path):
+    """
+    Blueprints autoloader for all endpoints
+    """
+    for module_name in os.listdir(package_path):
+        if module_name.endswith(".py") and module_name != "__init__.py":
+            module = importlib.import_module(f"{package_name}.{module_name[:-3]}")
+            for attribute_name in dir(module):
+                attribute = getattr(module, attribute_name)
+                if isinstance(attribute, Blueprint):
+                    app.register_blueprint(
+                        attribute, url_prefix=f'/{package_name.split(".")[-1]}'
+                    )
 
-# Import routes for equity
-from routes.equity.bracket import equity_bracket
-from routes.equity.limit import equity_limit
-from routes.equity.market import equity_market
-from routes.equity.notional import equity_notional
-from routes.equity.stop_limit import equity_stop_limit
-from routes.equity.reverse import equity_reverse
-from routes.equity.reverselimit import equity_reverselimit
-from routes.equity.tieredfiblimit import equity_tieredfiblimit
-from routes.equity.aristocrats import equity_aristocrats
-from routes.equity.bracketlimit import equity_bracketlimit
-
-from routes.kraken.market import kraken_market
 
 if __name__ == "__main__":
     # Register routes for crypto
-    app.register_blueprint(crypto_limit, url_prefix="/crypto")
-    app.register_blueprint(crypto_market, url_prefix="/crypto")
-    app.register_blueprint(crypto_notional, url_prefix="/crypto")
-    app.register_blueprint(crypto_stop_limit, url_prefix="/crypto")
+    register_routes(app, "routes.crypto", "routes/crypto")
 
     # Register routes for equity
-    app.register_blueprint(equity_bracket, url_prefix="/equity")
-    app.register_blueprint(equity_bracketlimit, url_prefix="/equity")
-    app.register_blueprint(equity_limit, url_prefix="/equity")
-    app.register_blueprint(equity_market, url_prefix="/equity")
-    app.register_blueprint(equity_notional, url_prefix="/equity")
-    app.register_blueprint(equity_reverse, url_prefix="/equity")
-    app.register_blueprint(equity_reverselimit, url_prefix="/equity")
-    app.register_blueprint(equity_stop_limit, url_prefix="/equity")
-    app.register_blueprint(equity_tieredfiblimit, url_prefix="/equity")
-    app.register_blueprint(equity_aristocrats, url_prefix="/equity")
+    register_routes(app, "routes.equity", "routes/equity")
 
-    # Register kraken routes
-    app.register_blueprint(kraken_market, url_prefix="/kraken")
+    # Register routes for equity
+    register_routes(app, "routes.options", "routes/options")
 
     # Run the app
     app.run(host="0.0.0.0", port=5000)

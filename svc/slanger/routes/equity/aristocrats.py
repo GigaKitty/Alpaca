@@ -9,7 +9,7 @@ equity_aristocrats = Blueprint("equity_aristocrats", __name__)
 
 @equity_aristocrats.route("/aristocrats", methods=["POST"])
 @timeit_ns
-def order():
+def aristocrats():
     """
     - Places a simple market order of BUY based on TradingView WebHook
     - If the action is not BUY, skip the webhook
@@ -34,7 +34,9 @@ def order():
             return jsonify(response_data), 200
         except Exception as e:
             app.logger.error("🔴🎩Aristocrats - Error processing request: %s", str(e))
-            error_message = {"error": "🔴🎩Aristocrats - Failed to process webhook request"}
+            error_message = {
+                "error": "🔴🎩Aristocrats - Failed to process webhook request"
+            }
             return jsonify(error_message), 400
     else:
         skip_message = {"Skip": "🟡🎩Aristocrats - Skip webhook"}

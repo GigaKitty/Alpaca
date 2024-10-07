@@ -14,26 +14,34 @@ api = TradingClient(
 # Initialize the Flask app
 app = Flask(__name__)
 
+SKIP_ENDPOINTS = [
+    "metrics_endpoint",
+    "health_check",
+    "health_check_liveness",
+    "health_check_readiness",
+    "health_check_startup",
+]
+PREPROCESS = ["buy_side_only", "sell_side_only"]
+POSTPROCESS = ["half_supertrend"]
 
-SKIP_ENDPOINTS = ['metrics_endpoint', 'health_check', 'health_check_liveness', 'health_check_readiness', 'health_check_startup']
-COMMENTS = ['sl/tp', 'Close entry(s) order Long', 'Close entry(s) order Short']
+COMMENTS = ["sl/tp", "Close entry(s) order Long", "Close entry(s) order Short"]
 
 # Enable debug mode if FLASK_ENV is set to development
-if os.getenv('ENVIRONMENT') == 'dev' or os.getenv('DEBUG') == 'True':
-    app.config['DEBUG'] = True
+if os.getenv("ENVIRONMENT") == "dev" or os.getenv("DEBUG") == "True":
+    app.config["DEBUG"] = True
 
 metrics = PrometheusMetrics(app)
-metrics.info('app_info', 'Application info', version='1.0.3')
+metrics.info("app_info", "Application info", version="1.0.3")
 
 
 # Create a handler
-#handler = logging.StreamHandler()
-#handler.setLevel(logging.DEBUG)
+# handler = logging.StreamHandler()
+# handler.setLevel(logging.DEBUG)
 
 # Create and set the custom formatter
-#formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-#handler.setFormatter(formatter)
+# formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# handler.setFormatter(formatter)
 
 # Add the handler to the app's logger
-#app.logger.addHandler(handler)
-#app.logger.setLevel(logging.DEBUG)
+# app.logger.addHandler(handler)
+# app.logger.setLevel(logging.DEBUG)

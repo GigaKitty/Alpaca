@@ -1,1 +1,0 @@
-The exact intention of this script is unknown at this time.
