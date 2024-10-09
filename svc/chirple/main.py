@@ -1,13 +1,16 @@
-from gtts import gTTS
-import subprocess
+import asyncio
 from datetime import datetime
-from apscheduler.schedulers.blocking import BlockingScheduler
+from gtts import gTTS
 import io
+import redis.asyncio as aioredis
+import subprocess
 
-# Create a sample TTS and pipe it directly to paplay
-def create_sample_tts():
+CHRIPLE_CHANNEL = "account_channel"
+
+async def speakoutloud(message):
     current_time = datetime.now().strftime("%H:%M:%S")
-    text = f"The current time is {current_time}"
+    print(message)
+    text = message.decode("utf-8")
     tts = gTTS(text=text, lang="en")
 
     # Save the TTS output to a memory buffer instead of a file
@@ -37,18 +40,36 @@ def create_sample_tts():
         paplay_process.communicate()
         ffmpeg_process.communicate()
 
-        print(f"Played TTS for time: {current_time}")
+        #print(f"Played TTS for time: {current_time}")
     except Exception as e:
         print(f"Exception occurred while playing TTS: {e}")
 
-# Set up APScheduler and start monitoring
-if __name__ == "__main__":
-    scheduler = BlockingScheduler()
-    scheduler.add_job(create_sample_tts, 'interval', minutes=1, seconds=0)
+# Function to handle messages from Redis channel
+async def handle_redis_message(message):
+    print(f"Received message from Redis: {message.decode('utf-8')}")
+    await speakoutloud(message)
 
+# Function to listen to Redis channel
+async def listen_to_redis_channel():
+    redis = aioredis.from_url('redis://redis-stack-core:6379')
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(CHIRPLE_CHANNEL)
+
+    async for message in pubsub.listen():
+        if message['type'] == 'message':
+            await handle_redis_message(message['data'])
+
+    await redis.close()
+
+# Set up the event loop and start monitoring
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(listen_to_redis_channel())
+
+    # Keep the main thread alive
     try:
-        print("Starting scheduler...")
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        print("Exiting ...")
-        scheduler.shutdown()
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()

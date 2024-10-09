@@ -50,33 +50,31 @@ services:
       - /home/captain/.cloudflared/alpaca-${ENVIRONMENT}:/etc/cloudflared
       #- ./cloudflared:/etc/cloudflared
 
-  # earnyearn:
-  # @TODO earnyearn is running into bad request because it's unable to sell short
-  # it's also having false signals on the same candle
-  #   build:
-  #     args:
-  #       SVC_DIR: ./svc/earnyearn
-  #   container_name: earnyearn-${ENVIRONMENT}
-  #   profiles:
-  #     - dev
-  #     #- main
-  #   labels:
-  #     - "profile=dev"
-  #     #- "profile=main"
-  #   restart: always
-  #   volumes:
-  #     - ./svc/earnyearn/:/app/
-  #   networks:
-  #     - core_network
-  #   environment:
-  #     - APCA_API_KEY_ID=${APCA_API_KEY_ID}
-  #     - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-  #     - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
-  #     - ENVIRONMENT=${ENVIRONMENT}
-  #     - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-  #     - REDIS_HOST=${REDIS_HOST:-redis-stack}
-  #     - REDIS_PORT=${REDIS_PORT:-6379}
-  #     - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+  earnyearn:
+    build:
+      args:
+        SVC_DIR: ./svc/earnyearn
+    container_name: earnyearn-${ENVIRONMENT}
+    profiles:
+      - dev
+      #- main
+    labels:
+      - "profile=dev"
+      #- "profile=main"
+    restart: always
+    volumes:
+      - ./svc/earnyearn/:/app/
+    networks:
+      - core_network
+    environment:
+      - APCA_API_KEY_ID=${APCA_API_KEY_ID}
+      - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - EARNYEARN_ORDER_ENDPOINT=${EARNYEARN_ORDER_ENDPOINT}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
 
   
   # sentimentsheperd:
@@ -154,10 +152,12 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
-      - ENVIRONMENT=${ENVIRONMENT}
       - DEBUG=${DEBUG:-true}
+      - ENVIRONMENT=${ENVIRONMENT}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
+      - VOLATILITYVULTURE_ORDER_ENDPOINT=${VOLATILITYVULTURE_ORDER_ENDPOINT}
 
   yieldyak:
     build:
@@ -203,6 +203,37 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - ENVIRONMENT=${ENVIRONMENT}
+
+  chirple:
+    build:
+      context: .
+      dockerfile: Dockerfile.chirple
+      args:
+        SVC_DIR: ./svc/chirple
+    container_name: chirple-${ENVIRONMENT}
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    restart: always
+    volumes:
+      - ./svc/chirple/:/app/
+      - /run/user/1000/pulse:/run/user/1000/pulse
+      - /etc/machine-id:/etc/machine-id    
+    devices:
+      - /dev/snd
+    depends_on:
+      - redis-stack
+    networks:
+      - core_network
+    environment:
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - ENVIRONMENT=${ENVIRONMENT}
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+    #stdin_open: true
+    #tty: true
+
 
   influxox:
     build:
@@ -294,6 +325,12 @@ services:
     image: alpacamarkets/marketstore:latest
     container_name: marketstore-core
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'  # Assign 2 CPU cores
+        reservations:
+          cpus: '2.0'  # Reserve 1 CPU core
     ports:
       - ${MARKETSTORE_PORT:-5993}:5993
       - ${MARKETSTORE_DEBUG_PORT:-5994}:5994
