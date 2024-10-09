@@ -51,8 +51,9 @@ async def update_list_periodically(update_interval, websocket):
             await asyncio.sleep(update_interval)
         except ConnectionResetError:
             # Reconnect logic here
-            websocket = await handle_connection(request)
-            logging.error("Connection reset. Reconnecting...")
+            print("IDK hat to do here")
+            #websocket = await handle_connection(request)
+            #l#ogging.error("Connection reset. Reconnecting...")
 
 async def get_list(ticker_list):
     combined_list = []
@@ -129,7 +130,6 @@ async def account_socket():
                 logging.error("Invalid JSON received in the authentication response.")
                 return
 
-            print(response_data)
             if (
                 isinstance(response_data, list)
                 and response_data[0].get("T") == "success"
@@ -141,6 +141,7 @@ async def account_socket():
                     "Trade authentication successful. Connected to the WebSocket."
                 )
                 await websocket.send_str(subscription_message)
+              
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
@@ -203,7 +204,7 @@ async def crypto_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        # logging.info(f"Crypto data: {data}")
+                        # logging.info(f"Crypto data: {data}") # @NOTE: uncomment this line to debug
                         await broadcast(data, "crypto_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Crypto WebSocket connection closed")
