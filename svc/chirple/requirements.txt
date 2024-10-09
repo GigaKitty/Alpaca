@@ -1,0 +1,2 @@
+gtts==2.5.3
+APScheduler==3.10.4
