@@ -51,11 +51,11 @@ def wait_position_close(data, api, timeout=60):
         f"Timeout: Position for {ticker} did not close within {timeout} seconds."
     )
 
-
-def get_current_price(data, api):
-    pos = get_position(data, api)
-    if pos is not False:
-        return float(pos.current_price)
+#@REMOVE: deprecated
+#def get_current_price(data, api):
+#    pos = get_position(data, api)
+#    if pos is not False:
+#        return float(pos.current_price)
 
 
 def opps(data, api):

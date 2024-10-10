@@ -1,5 +1,5 @@
 from config import app, api
-
+import os
 from utils import position
 
 """
@@ -23,36 +23,22 @@ def profit(data):
         return False
 
 
-def get_current_price(data, api):
-    """
-    - Get the current price of the ticker from the Alpaca API
-    - Return the current price of the ticker
-    """
-    barset = api.get_barset(data.get("symbol"), "minute", limit=1)
-    bar = barset[ticker][0]
-    app.loggerdebug(
-        f"Time: {bar.t}, Open: {bar.o}, High: {bar.h}, Low: {bar.l}, Close: {bar.c}, Volume: {bar.v}"
-    )
-    return bar.c
-
-
 def qty(data):
     """
-    - Calculate the quantity based on the data received from the webhook
-    - If the data contains a position, return the quantity in the position
-    - If the data does not contain a position, return the quantity based on the buying power in the account
-    - Return the calculated quantity
+    - If qty is set statically in the reqeust then keep that value
+    - If qty is not set, calculate the quantity based on the data buying power
+    - Else return 1
     """
     buying_power = float(data["acc"].buying_power)
 
-    if buying_power > 0:
+    if data.get("qty") is not None:
+        return round(data.get("qty"))
+    elif buying_power > 0 and data.get("price") is not None:
         buying_power = round(buying_power * data["risk"])
         price = round(float(data.get("price")))
-        qty = round(buying_power / price)
+        return round(buying_power / price)
     else:
-        qty = 1
-
-    return qty
+        return 1
 
 
 def qty_available(data, api):
@@ -72,10 +58,10 @@ def qty_available(data, api):
             app.logger.error(f"Error: is not a valid number.")
             return None
     app.logger.debug(f"Quantity Available: {qty_available}")
-    
+
     if qty_available is None:
         return 0
-    
+
     return qty_available
 
 
@@ -180,9 +166,6 @@ def stop_limit_price(data: dict) -> float:
         return round(float(price * data.get("stop_limit_price_sell", 1.001)), 2)
 
 
-6
-
-
 def limit_price(data: dict) -> float:
     """
     - Calculate the limit price based on the action specified in the data.
@@ -208,6 +191,8 @@ def risk(data):
     """
     if data.get("risk"):
         return float(data.get("risk", 0.01))
+    elif os.getenv("ENVIRONMENT") == "dev":
+        return 0.025
     else:
         return 0.01
 

@@ -30,6 +30,7 @@ earnings = []
 timeframe = "1Min"
 attribute_group = "OHLCV"
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
+list_name = "earnings_list"
 
 client = StockHistoricalDataClient(
     os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY")
@@ -69,19 +70,16 @@ cooldown_period = 25  # Number of bars to wait before allowing another buy
 ########################################
 ########################################
 
-
+# @TODO: further this by looking at the overall trend of past earnings as well as this period upcoming to determine overall direction.
 async def publish_list(list_name, message):
     try:
         await redis.delete(list_name)
         await redis.lpush(list_name, message)
-        print(f"Published message: {message} to list: {list_name}")
+        logging.info(f"Published message: {message} to list: {list_name}")
     except aioredis.exceptions.TimeoutError:
-        print(f"Timeout error while publishing message: {message} to list: {list_name}")
+        logging.error(f"Timeout error while publishing message: {message} to list: {list_name}")
     except aioredis.exceptions.RedisError as e:
-        print(
-            f"Redis error: {e} while publishing message: {message} to list: {list_name}"
-        )
-
+        logging.error(f"Redis error: {e} while publishing message: {message} to list: {list_name}")
 
 async def trend_getter(symbol):
     try:
@@ -90,14 +88,14 @@ async def trend_getter(symbol):
             return json.loads(cached_data)
 
         data = finnhub_client.recommendation_trends(symbol)
+        sorted_data = sorted(
+            data,
+            key=lambda x: datetime.datetime.strptime(x["period"], "%Y-%m-%d"),
+            reverse=True,
+        )
     except Exception as e:
-        print(f"Error processing earnings data: {e}")
-
-    sorted_data = sorted(
-        data,
-        key=lambda x: datetime.datetime.strptime(x["period"], "%Y-%m-%d"),
-        reverse=True,
-    )
+        logging.error(f"Error fetching trend data for {symbol}: {e}")
+        return None
 
     latest_entry = sorted_data[0]
 
@@ -107,9 +105,7 @@ async def trend_getter(symbol):
     }
     highest_trend = max(trends, key=trends.get)
 
-    print(
-        f"The highest trend for {symbol} is: {highest_trend} with a value of {trends[highest_trend]}"
-    )
+    logging.info(f"Symbol: {symbol} has the following trends: {trends}")
 
     # This is weird but prevents all from expiring at the same time.
     expiration_time = random.randint(3600, 7200)
@@ -148,6 +144,7 @@ async def fetch_earnings_calendar():
         international=False,
     )
 
+    #@TODO: maybe remove or improve because now we're shorting enabled so we can be on either side.
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
             if (
@@ -163,11 +160,10 @@ async def fetch_earnings_calendar():
                     earnings.append(earning["symbol"])
 
     else:
-        print("😭 No earnings data found for the specified date range.")
+        logging.error("😭 No earnings data found for the specified date range.")   
 
-    print(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
-    await publish_list("earnings_list", json.dumps(earnings))
-    # await get_candles(earnings)
+    logging.info(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
+    await publish_list(list_name, json.dumps(earnings))
 
 
 def send_order(action, symbol, data):
@@ -176,19 +172,20 @@ def send_order(action, symbol, data):
     required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
     side is hardcoded as buy for now
     """
+    print(f"price: {data['Close'].iloc[-1]}")
+    print("💵💵💵💵💵💵💵💵💵💵💵")
     data = {
         "action": action,
         "close": data["Close"].iloc[-1],
         "comment": "macd-rsi-bb-earnyearn",
         "high": data["High"].iloc[-1],
         "interval": "1m",
+        "price": data["Close"].iloc[-1],
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
-        # "side": "long",
         "risk": os.getenv("EARNYEARN_RISK", 0.001),
         "signature": tv_sig,
         "ticker": symbol,
-        #"trailing": 1,
         "volume": data["Volume"].iloc[-1],
     }
 
@@ -197,13 +194,12 @@ def send_order(action, symbol, data):
 
     if response.status_code == 200:
         try:
-            print("Pass", response.json())
-            print(data)
+            logging.info(f"Order sent successfully for {symbol}")
         except requests.exceptions.JSONDecodeError:
-            print("Response is not in JSON format.", response)
+            logging.error("Response is not in JSON format.")
     else:
-        print(f"HTTP Error encountered: {response}")
-
+        logging.error(f"HTTP Error encountered: {response}")
+        
 
 async def calc_strat(ticker, data):
     """
@@ -213,7 +209,7 @@ async def calc_strat(ticker, data):
     global last_buy_timestamp
     df = pd.DataFrame(data)
 
-    print(f"Calculating strategy for {ticker}")
+    logging.info(f"Calculating strategy for {ticker}")
 
     try:
         # Check if 'Epoch' is already the index
@@ -298,80 +294,24 @@ async def calc_strat(ticker, data):
     sell_condition = (
         recent_anomalies["MACD_Sell"].any() and recent_anomalies["RSI_Sell"].any()
     )
-
-    print(f"Buy condition: {buy_condition} for {ticker}")
-    print(f"Sell condition: {sell_condition} for {ticker}")
+ 
     current_timestamp = df.index[-1].timestamp()
 
     if buy_condition:
         if ticker not in last_buy_timestamp or (
             current_timestamp - last_buy_timestamp[ticker]
         ) > (cooldown_period * 60):
-            print("Buy condition met")
+            logging.info(f"Buy condition met in {ticker}")   
             send_order("buy", ticker, data)
             last_buy_timestamp[ticker] = current_timestamp
 
     # @TODO: For sell condition maybe we should check last time and ALSO if sell conditions are later than the buy.
     if sell_condition:
-        print("Sell condition met")
+        logging.info(f"Sell condition met in {ticker}")
         send_order("sell", ticker, data)
 
 
-def parse_datetime(dt_str):
-    try:
-        return datetime.datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%SZ").timestamp()
-    except ValueError as e:
-        logging.error(f"Error parsing datetime: {e}")
-        return None
-
-# #@TODO: move this into a different service so all symbols are added to marketstore
-async def store_in_marketstore(data):
-    """
-    Store the data in Marketstore.
-    """
-    try:
-        required_fields = ["S", "t", "o", "h", "l", "c", "v"]
-        if not all(field in data for field in required_fields):
-            raise ValueError(f"Missing one of the required fields: {required_fields}")
-
-        epoch_time = parse_datetime(data["t"])
-
-        df = np.array(
-            [
-                (
-                    epoch_time,
-                    data.get("o", 0.0),
-                    data.get("h", 0.0),
-                    data.get("l", 0.0),
-                    data.get("c", 0.0),
-                    data.get("v", 0.0),
-                )
-            ],
-            dtype=[
-                ("Epoch", "i8"),  # int64
-                ("Open", "f8"),  # float64
-                ("High", "f8"),  # float64
-                ("Low", "f8"),  # float64
-                ("Close", "f8"),  # float64
-                ("Volume", "f8"),  # float64
-            ],
-        )
-
-        # Determine the symbol and timeframe
-        symbol = data["S"]
-
-        print(f"Storing marketstore data for symbol {symbol} with data: {df}")
-
-        # Write to Marketstore
-        marketstore_client.write(df, f"{symbol}/{timeframe}/{attribute_group}")
-        print(f"Successfully stored data for {symbol}")
-    except Exception as e:
-        print(f"Error storing data: {e}")
-
-
-async def read_data_from_marketstore(data):
-    symbol = data["S"]
-
+async def read_data_from_marketstore(symbol):
     # Define the query parameters
     params = pymkts.Params(
         symbols=symbol, timeframe=timeframe, attrgroup=attribute_group
@@ -396,59 +336,22 @@ async def read_data_from_marketstore(data):
         return None
 
 
-async def get_candles(symbols):
-    """
-    Fetches the candles for a given symbol from Alpaca API
-    """
-    for symbol in symbols:
-        print(f"Fetching candles for {symbol}")
-
-        # Define the request parameters
-        request_params = StockBarsRequest(
-            symbol_or_symbols=symbol, timeframe=TimeFrame.Minute, limit=200
-        )
-        # Query Alpaca API for candle data
-        try:
-            logging.info(f"Querying Alpaca API for {symbol}")
-            bars = client.get_stock_bars(request_params).df
-            if bars.empty:
-                logging.error("Alpaca API query returned no results.")
-            await calc_strat(symbol, bars)
-        except Exception as e:
-            logging.error(f"Error querying Alpaca API: {e}")
+async def get_list(key):
+    list_data = await redis.lrange(key, 0, -1)
+    if list_data:
+        list_data = json.loads(list_data[0].decode("utf-8"))
+    return list_data
 
 
-async def process_message(redis, message):
-    """
-    Process the message if it meets the filtering criteria and log to Redis.
-    """
-    data = json.loads(message)
+async def spawn_calc():
+    # Fetch the redis list
+    earnings = await get_list(list_name)
 
-    # Filter based on the ticker symbol
-    filtered_data = [
-        item for item in data if item.get("S") in earnings and item.get("T") == "b"
-    ]
-
-    for item in filtered_data:
-        ticker = item.get("S")
-        if ticker:
-            print(f"Processing message for {ticker}: {item}")
-            await redis.lpush(f"logs:{ticker}", json.dumps(item))
-            #await store_in_marketstore(item)
-            market_data = await read_data_from_marketstore(item)
-            await calc_strat(ticker, market_data)
-
-        else:
-            print(f"Skipping message: {item}")
-
-
-async def redis_listener():
-    pubsub = redis.pubsub()
-    await pubsub.subscribe("stocks_channel")
-
-    async for message in pubsub.listen():
-        if message["type"] == "message":
-            await process_message(redis, message["data"])
+    # Loop through the list and calculate the strategy
+    if earnings:
+        for symbol in earnings:
+            data = await read_data_from_marketstore(symbol)
+            await calc_strat(symbol, data)
 
 
 async def scheduler_task(scheduler):
@@ -464,12 +367,10 @@ async def scheduler_task(scheduler):
 async def main():
     scheduler = AsyncIOScheduler()
     scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
-    await asyncio.gather(redis_listener(), scheduler_task(scheduler))
-    # await asyncio.gather(scheduler_task(scheduler))
+    scheduler.add_job(spawn_calc, "interval", minutes=1, seconds=0)
+
+    await asyncio.gather(scheduler_task(scheduler))
 
 
 if __name__ == "__main__":
-    """
-    Entry point for the application
-    """
     asyncio.run(main())

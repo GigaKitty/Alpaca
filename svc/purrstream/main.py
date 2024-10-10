@@ -6,7 +6,7 @@ import logging
 import os
 import redis.asyncio as aioredis
 
-REGULARS = ['SPY']
+REGULARS = ["SPY"]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -52,8 +52,9 @@ async def update_list_periodically(update_interval, websocket):
         except ConnectionResetError:
             # Reconnect logic here
             print("IDK hat to do here")
-            #websocket = await handle_connection(request)
-            #l#ogging.error("Connection reset. Reconnecting...")
+            # websocket = await handle_connection(request)
+            # l#ogging.error("Connection reset. Reconnecting...")
+
 
 async def get_list(ticker_list):
     combined_list = []
@@ -102,14 +103,14 @@ async def broadcast(message, channel):
 
 
 async def account_socket():
-    wss_account_url = "wss://paper-api.alpaca.markets/stream"
+    # @NOTE: we're only subscribing to trade_updates for main here
+    wss_account_url = "wss://api.alpaca.markets/stream"
     api_key = os.getenv("APCA_API_KEY_ID")
     api_sec = os.getenv("APCA_API_SECRET_KEY")
     auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
 
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(wss_account_url) as websocket:
-            # Send authentication request
             await websocket.send_str(auth_message)
 
             # Receive authentication response
@@ -140,16 +141,17 @@ async def account_socket():
                 logging.info(
                     "Trade authentication successful. Connected to the WebSocket."
                 )
+                logging.info("Sending subscription message for trade_updates")
                 await websocket.send_str(subscription_message)
-              
+
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        logging.info(f"Account data: {data}")
+                        logging.info(f"Account data received: {data}")
                         await broadcast(data, "account_channel")
                     elif msg.type == aiohttp.WSMsgType.BINARY:
                         data = msg.data.decode("utf-8")
-                        # logging.info(f"Stocks data: {data}")
+                        logging.info(f"Account binary data received: {data}")
                         await broadcast(data, "account_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Account WebSocket connection closed")
@@ -157,6 +159,8 @@ async def account_socket():
                     elif msg.type == aiohttp.WSMsgType.ERROR:
                         logging.error(f"WebSocket error: {msg.data}")
                         break
+            else:
+                logging.error("Account authentication failed.")
 
 
 async def crypto_socket():
@@ -247,7 +251,6 @@ async def stocks_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        # logging.info(f"Stocks data: {data}")
                         await broadcast(data, "stocks_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Stocks WebSocket connection closed")

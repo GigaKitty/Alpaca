@@ -1,4 +1,4 @@
-from config import app, api, SKIP_ENDPOINTS, PREPROCESS
+from config import app, api, SKIP_PATHS, PREPROCESS
 from flask import request, jsonify, g
 from utils import sec, account, position, calc, order
 from utils.performance import timeit_ns
@@ -50,11 +50,11 @@ def preprocess():
     g.data = request.json
 
     # Exit Early fail often 🦉 Validate the signature of the request coming in
-    if sec.authorize(g.data) != True and request.endpoint not in ["health", "metrics"]:
+    if sec.authorize(g.data) != True and request.path not in SKIP_PATHS:
         return jsonify({"Unauthorized": "Failed to process signature"}), 401
 
     # Skip endpoints in the list 🦘
-    if request.endpoint in SKIP_ENDPOINTS:
+    if request.path in SKIP_PATHS:
         return jsonify({"Skip endpoint": "🦘 Skipping from skip list"}), 400
 
     # Hack Time 😎
@@ -66,48 +66,49 @@ def preprocess():
     ):
         return jsonify({"Market Closed": "📉 Market is closed for equity orders"}), 400
 
-    #####################
-    # Prepare thy data 😇
-    #####################
-    # Static data
-    g.data["acc"] = account.get_account(g.data, api)  # Setup account details
-    g.data["pos"] = position.get_position(
-        g.data, api
-    )  # Get current position for symbol
+    if g.data not in [None, {}]:
+        #####################
+        # Prepare thy data 😇
+        #####################
+        # Static data
+        g.data["acc"] = account.get_account(g.data, api)  # Setup account details
+        g.data["pos"] = position.get_position(
+            g.data, api
+        )  # Get current position for symbol
 
-    # Calc data
-    g.data["risk"] = calc.risk(
-        g.data
-    )  # @NOTE: Risk needs to be calculated first before qty and notional
-    g.data["limit_price"] = calc.limit_price(g.data)
-    g.data["notional"] = calc.notional(g.data)
-    g.data["profit"] = calc.profit(g.data)
-    g.data["qty_available"] = calc.qty_available(g.data, api)
-    g.data["qty"] = calc.qty(g.data)
-    g.data["side"] = calc.side(g.data)
-    g.data["trail_percent"] = calc.trail_percent(g.data)
-    g.data["trailing"] = calc.trailing(g.data)
+        # Calc data
+        g.data["risk"] = calc.risk(
+            g.data
+        )  # @NOTE: Risk needs to be calculated first before qty and notional
+        
+        #g.data["limit_price"] = calc.limit_price(g.data)
+        g.data["notional"] = calc.notional(g.data)
+        g.data["profit"] = calc.profit(g.data)
+        g.data["qty_available"] = calc.qty_available(g.data, api)
+        g.data["qty"] = calc.qty(g.data)
+        g.data["side"] = calc.side(g.data)
+        g.data["trail_percent"] = calc.trail_percent(g.data)
+        g.data["trailing"] = calc.trailing(g.data)
+        # Override the data object with the POST data
+        g.data["opps"] = position.opps(g.data, api)
+        g.data["order_id"] = order.gen_id(g.data, 10)
 
-    # Override the data object with the POST data
-    g.data["opps"] = position.opps(g.data, api)
-    g.data["order_id"] = order.gen_id(g.data, 10)
+        g.data["after_hours"] = g.data.get("after_hours", False)
+        g.data["comment"] = g.data.get("comment", "🤐")
+        g.data["interval"] = g.data.get("interval", "🔕")
 
-    g.data["after_hours"] = g.data.get("after_hours", False)
-    g.data["comment"] = g.data.get("comment", "🤐")
-    g.data["interval"] = g.data.get("interval", "🔕")
-
-    # This will run some operations before the order is processed
-    # Actions like closing orders, etc.
-    # Preprocess functions are ran after the global data operations are done
-    # and g.data.get("preprocess") in PREPROCESS
-    preprocess_list = g.data.get("preprocess")
-    if isinstance(preprocess_list, list) and any(
-        item in PREPROCESS for item in preprocess_list
-    ):
-        for func in preprocess_list:
-            if func == "buy_side_only":
-                result = buy_side_only(g.data)
-                return result
+        # This will run some operations before the order is processed
+        # Actions like closing orders, etc.
+        # Preprocess functions are ran after the global data operations are done
+        # and g.data.get("preprocess") in PREPROCESS
+        preprocess_list = g.data.get("preprocess", [])
+        if isinstance(preprocess_list, list) and any(
+            item in PREPROCESS for item in preprocess_list
+        ):
+            for func in preprocess_list:
+                if func == "buy_side_only":
+                    result = buy_side_only(g.data)
+                    return result
 
     # Uncomment to debug the data object
     # app.logger.debug("📭 Data: %s", g.data)

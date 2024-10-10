@@ -6,9 +6,6 @@ from utils import position
 from utils.performance import timeit_ns
 from utils import calc, order as order_utils, position
 
-import os
-import time
-
 equity_supertrend = Blueprint("equity_supertrend", __name__)
 
 memory = {}
@@ -22,11 +19,6 @@ def order():
         - one for breaking down, one for breaking up, and one for the supertrend
     
     """
-    if os.getenv("ENVIRONMENT") == "dev":
-        qty_temp = 250
-    elif os.getenv("ENVIRONMENT") == "main":
-        qty_temp = 1
-
 
     if g.data.get("comment")  in ["downward_breakout", "upward_breakout"]:
         memory[g.data.get("ticker")] = {
@@ -39,7 +31,7 @@ def order():
 
     if g.data.get("pos") is not False and g.data.get("side") != g.data.get("action"): 
         try:
-            # Close all open orders and position for the symbol
+           # # Close all open orders and position for the symbol
             open_orders = order_utils.get_orders_for_ticker(g.data.get("ticker"))
 
             # Cancel all open orders by ID
@@ -63,9 +55,9 @@ def order():
         # Place the initial market order
         order_data = MarketOrderRequest(
             symbol=g.data.get("ticker"),
-            qty=qty_temp,
+            qty=g.data.get("qty"),
             side=g.data.get("action"),
-            time_in_force=TimeInForce.DAY,
+            time_in_force=TimeInForce.IOC,
             after_hours=g.data.get("after_hours"),
             client_order_id=g.data.get("order_id"),
         )
@@ -80,6 +72,7 @@ def order():
         app.logger.error("Error processing request: %s", str(e))
         error_message = {"error": "Failed to process webhook request"}
         return jsonify(error_message), 400
-
-    finally:   
-        print("Memory: ", memory)
+    
+    finally:
+        print("Finally block")
+        # confirm the trade and if not we retry to ensure the trade is executed and is on the right side

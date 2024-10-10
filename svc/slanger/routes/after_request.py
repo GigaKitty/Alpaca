@@ -1,10 +1,12 @@
-from config import api, app, POSTPROCESS
-import math
-from time import sleep
-from alpaca.trading.requests import TrailingStopOrderRequest
 from alpaca.trading.enums import TimeInForce
-from utils.performance import timeit_ns
+from alpaca.trading.requests import TrailingStopOrderRequest
+from config import api, app, POSTPROCESS
 from flask import Flask, g, jsonify, make_response
+from time import sleep
+import time
+from utils.performance import timeit_ns
+import math
+import threading
 
 
 def trailing_stop(data):
@@ -77,24 +79,46 @@ def trailing_stop(data):
     app.logger.debug(f"response: {response}")
 
 
+def update_price(data, response):
+    # while the order id exists
+    while True:
+        try:
+            print(f"Data: {data}")
+            # Fetch the current price and update the order
+            # update_order_price(order_id, current_price)
+            # app.logger.info(f"Updated price for order {order_id} to {current_price}")
+        except Exception as e:
+            app.logger.error(f"Error updating price for order {order_id}: {e}")
+
+        time.sleep(60)  # Wait for 1 minute before updating again
+
+
 def half_supertrend(data, response):
-    # get current quantity of the position
-    if g.data.get("pos") is not False:
-        app.logger.debug(f"Spawning half supertrend order")
-        # Get the total available quantity and split it into quarters based on fibbonaccie sequence
-        app.logger.debug(f"qty_available: {g.data.get('qty_available')}")
-        app.logger.debug(f"response: {response}")
-    
+    # Set the interval for the update
+    thread = threading.Thread(
+        target=update_price,
+        args=(
+            data,
+            response,
+        ),
+    )
+    thread.daemon = True  # Ensure the thread exits when the main program exits
+    thread.start()
+
+
+def tts_trades():
+    print("TTS trades")
+
 
 @app.after_request
 @timeit_ns
 def after_request(response):
-    postprocess_list = g.data.get("postprocess")
-    if isinstance(postprocess_list, list) and any(
-        item in POSTPROCESS for item in postprocess_list
-    ):
-        for func in postprocess_list:
-            if func == "half_supertrend":
-                half_supertrend(g.data, response)
+    # postprocess_list = g.data.get("postprocess", [])
+    # if isinstance(postprocess_list, list) and any(
+    #     item in POSTPROCESS for item in postprocess_list
+    # ):
+    #     for func in postprocess_list:
+    #         if func == "half_supertrend":
+    #             half_supertrend(g.data, response)
 
     return response  # @IMPORTANT: Do not remove this line

@@ -22,17 +22,19 @@ triggers:
     on: "*/*/*"
     config:
       filter: nasdaq
-
+#@TODO: get this tested
 # bgworkers:
-#   - module: gdaxfeeder.so
+#   - module: alpaca.so
 #     config:
-#       base_timeframe: '1Min'
-#       query_start: '2018-01-01 00:00'
-#       symbols:
-#         - BTC-USD
-#         - ETH-USD
-#         - LTC-USD
-#         - BCH-USD
-#         - ZRX-USD
-#         - ETC-USD
-#         - BAT-USD
+#       api_key: your_alpaca_key_id
+#       api_secret: your_alpaca_secret
+#       ws_server: wss://data.alpaca.markets/stream
+#       ws_worker_count: 10
+#       feed: alpacadatav1
+#       minute_bar_symbols:
+#         - '*'
+#       quote_symbols:
+#         - VOO
+#         - SPY
+#       trade_symbols:
+#         - AAPL

@@ -12,7 +12,7 @@ def validate_signature(data):
     Set the environment variable TRADINGVIEW_SECRET to the secret key from TradingView
     """
     signature = os.getenv("TRADINGVIEW_SECRET", False)
-
+    
     if signature is False:
         #app.logger.error("TRADINGVIEW_SECRET environment variable not set")
         return render_template("404.html"), 404
@@ -32,7 +32,6 @@ def validate_signature(data):
     secret = signature.encode("utf-8")
     expected_signature = hmac.new(secret, message, hashlib.sha256).hexdigest()
 
-    # Constant-time comparison
     if not hmac.compare_digest(provided_signature, expected_signature):
         #app.logger.error("Invalid signature")
         return render_template("404.html"), 404

@@ -1,4 +1,7 @@
 __pycache__/
+_config/cloudflared.yml
+_config/credentials.json
+_config/prometheus.yml
 _data
 !.vscode/extensions.json
 !.vscode/launch.json
@@ -63,7 +66,6 @@ _data
 *.cover
 *.credentials
 *.credentials.json
-svc/yieldyak/.credentials.json
 *.DS_Store
 *.egg
 *.egg-info/
@@ -119,6 +121,7 @@ parts/
 pip-delete-this-directory.txt
 pip-log.txt
 sdist/
+svc/yieldyak/.credentials.json
 target/
 Temporary Items
 Thumbs.db

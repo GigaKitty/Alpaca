@@ -5,7 +5,7 @@ import io
 import redis.asyncio as aioredis
 import subprocess
 
-CHRIPLE_CHANNEL = "account_channel"
+CHIRPLE_CHANNEL = "account_channel"
 
 async def speakoutloud(message):
     current_time = datetime.now().strftime("%H:%M:%S")

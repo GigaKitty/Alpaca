@@ -36,8 +36,10 @@ def timeit_ns(func):
         duration_s = duration / 1_000_000_000  # Convert nanoseconds to seconds
 
         if request.endpoint is None:
-            request.endpoint = "unknown"
-            
+            print(request)
+            #request.endpoint = "unknown"
+            return result
+
         point = (
             Point("performance")
             .tag("function", request.endpoint)  # Use request.endpoint as the function name

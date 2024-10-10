@@ -1,49 +1,56 @@
 # Alpaca
 
-Portable collection of microservices for Alpaca trading that deploy to AWS ECS using Copilot. Services are split into different tools and strategies for trading. Some services talk to other services, while others are standalone. The project currently uses copilot to deploy microservices so they are easy to manage and scale.
+Portable collection of microservices for Alpaca trading that can be deployed to AWS ECS using Copilot. Services are split into different tools and strategies for trading. Some services talk to other services, while others are standalone. The project currently uses copilot to deploy microservices so they are easy to manage and scale. This also runs locally using docker-compose for development and testing.
 
-## @purpose
+## purpose
 
 To create microservices that can used off the shelf with minimal effort that can be deployed via docker anywhere with minimal setup.
+
+## Architecture
+As mentioned it's microservices architecture has a lot of moving parts and each of them are designed to be flexible using a 12factor app methodology. Aside from the core services each service is designed to be a single use service that can be deployed and scaled independently of the other services. The services are designed to be stateless and can be scaled horizontally to handle more load. 
+
+Redis is used for pub/sub and some storage of information that can be destroyed.
+Marketstore is for storing historical data and is used for backtesting and other data analysis.
+InfluxDB is used for storing time series data that can be used for analysis and other purposes.
+Loki is used for logging and is used to store logs for analysis and debugging.
+
 
 ## Contributing
 
 You can easily contribute or request your own bots to this project or other projects on GigaKitty for other trading platforms by creating a new service. There is a step-by-step guide in the example service or you can contact us for more info just open an issue to open a comms link.
 
-## Application
+## COPILOT AWS
+  ### Application
+  The project consists of a single application "Alpaca" that make up the project.
 
-The project consists of a single application "Alpaca" that make up the project.
+  ### Services
 
-## Services
+  AWS copilot services are broken down into microservice architecture having each it's own responsibility. The services are as follows:
 
-AWS copilot services are broken down into microservice architecture having each it's own responsibility. The services are as follows:
+  #### svc guidelines
 
-### svc guidelines
+  - Instantly deployable and usable all three envs
+    - local using `docker-compose.yml`
+    - GitHub codespaces
+    - AWS copilot (ECS)
+  - Run without intervention from trader once it's going it doesn't stop or need kicked
+  - Have clear documentation or at least clean code to understand implementation
+  - Simple micro service single use
+  - Minimal dependencies
 
-- Instantly deployable and usable all three envs
-  - local using `docker-compose.yml`
-  - GitHub codespaces
-  - AWS copilot (ECS)
-- Run without intervention from trader once it's going it doesn't stop or need kicked
-- Have clear documentation or at least clean code to understand implementation
-- Simple micro service single use
-- Minimal dependencies
-
-🟣 Idea
-🟡 WIP
-🟢 Production
+  🟣 Idea
+  🟡 WIP
+  🟢 Production
 
 ### 🟢 beancleaner
 
 A cleanup service that will periodically clean up trades based on a pre-determined price and time criteria.
 For instance:
 
-- Every Friday at 13:00EST close all trades profitable over a dollar
-- Every Weekday at 13:00EST close all trades losing between $0-$5
+- Every Weekday at 12:59EST close all trades that aren't excluded like long term holds
 
 ### 🟢 earnyearn
-
-Automatic earnings report bot that consumes realtime bar data on earnings tickers upcoming or passed to process algos on. When an algo triggers it sends an order request to a webhook bot.
+A service
 
 ### 🟢 slanger
 

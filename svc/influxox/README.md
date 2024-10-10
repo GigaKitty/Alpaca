@@ -1,1 +1,2 @@
-Service saves market data into influx db for grafana visualization
+Service saves market data into influx db and also marketstore for grafana visualization and performance.
+This performant solution saves us the problem of querying the API every time we need to visualize the data.

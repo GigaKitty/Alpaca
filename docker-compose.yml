@@ -218,7 +218,7 @@ services:
     restart: always
     volumes:
       - ./svc/chirple/:/app/
-      - /run/user/1000/pulse:/run/user/1000/pulse
+      - /run/user/1000/pulse:/run/user/1000/pulse # @NOTE: this might not work for everyone 
       - /etc/machine-id:/etc/machine-id    
     devices:
       - /dev/snd
@@ -231,9 +231,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
-    #stdin_open: true
-    #tty: true
-
 
   influxox:
     build:
@@ -262,7 +259,7 @@ services:
     build:
       args:
         SVC_DIR: ./svc/purrstream
-    container_name: purrstream-core
+    container_name: purrstream-${ENVIRONMENT}
     restart: always
     ports:
       - ${PURRSTREAM_PORT:-8000}:8000
@@ -287,7 +284,9 @@ services:
       context: .
       dockerfile: Dockerfile.grafana
       target: grafana
-    container_name: grafana-core
+    container_name: grafana-${ENVIRONMENT}
+    #depends_on:
+    #  - loki
     restart: always
     ports:
       - ${GRAFANA_PORT:-3000}:3000
@@ -305,7 +304,7 @@ services:
 
   influxdb:
     image: influxdb:latest
-    container_name: influxdb
+    container_name: influxdb-${ENVIRONMENT}
     ports:
       - "8086:8086"
     profiles:
@@ -320,10 +319,23 @@ services:
       - INFLUX_DB=${INFLUXDB_DB:-marketstore}
     networks:
       - core_network
+  
+  loki:
+    image: grafana/loki:2.5.0
+    container_name: loki-${ENVIRONMENT}
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./_config/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
 
   marketstore:
     image: alpacamarkets/marketstore:latest
-    container_name: marketstore-core
+    container_name: marketstore-${ENVIRONMENT}
     restart: always
     deploy:
       resources:
@@ -347,15 +359,13 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus-core
+    container_name: prometheus-${ENVIRONMENT}
     restart: always
     environment:
       - SLANGER_DEV=${SLANGER_DEV}
       - SLANGER_MAIN=${SLANGER_MAIN}
     volumes:
       - ./_config/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     profiles:
@@ -365,9 +375,22 @@ services:
     networks:
       - core_network
 
+  promtail:
+    image: grafana/promtail:2.5.0
+    container_name: promtail-${ENVIRONMENT}
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    volumes:
+      - ./var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./_config/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
   redis-stack:
     image: redis/redis-stack:latest
-    container_name: redis-stack-core
+    container_name: redis-stack-${ENVIRONMENT}
     restart: always
     ports:
       - ${REDIS_PORT:-6379}:6379
@@ -381,6 +404,7 @@ services:
       - ./_config/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - core_network
+
 
 networks:
   core_network:

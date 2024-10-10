@@ -1,7 +1,8 @@
+aiohttp==3.9.5
+apscheduler==3.10.4
 influxdb-client==1.46.0
+prometheus-client==0.20.0
+pymarketstore==0.22
 redis==5.0.8
 requests==2.31.0
 websockets==10.4
-aiohttp==3.9.5
-prometheus-client==0.20.0
-apscheduler==3.10.4
