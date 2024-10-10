@@ -172,8 +172,6 @@ def send_order(action, symbol, data):
     required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
     side is hardcoded as buy for now
     """
-    print(f"price: {data['Close'].iloc[-1]}")
-    print("💵💵💵💵💵💵💵💵💵💵💵")
     data = {
         "action": action,
         "close": data["Close"].iloc[-1],
@@ -183,10 +181,11 @@ def send_order(action, symbol, data):
         "price": data["Close"].iloc[-1],
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
-        "risk": os.getenv("EARNYEARN_RISK", 0.001),
+        "risk": os.getenv("RISK", 0.001),
         "signature": tv_sig,
         "ticker": symbol,
         "volume": data["Volume"].iloc[-1],
+        "postprocess": ["trailing_stop"],
     }
 
     # Sending a POST request with JSON data

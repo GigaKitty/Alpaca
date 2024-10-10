@@ -6,7 +6,6 @@ import logging
 import os
 import redis.asyncio as aioredis
 
-REGULARS = ["SPY"]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -51,7 +50,7 @@ async def update_list_periodically(update_interval, websocket):
             await asyncio.sleep(update_interval)
         except ConnectionResetError:
             # Reconnect logic here
-            print("IDK hat to do here")
+            print("IDK what to do here")
             # websocket = await handle_connection(request)
             # l#ogging.error("Connection reset. Reconnecting...")
 
@@ -103,8 +102,11 @@ async def broadcast(message, channel):
 
 
 async def account_socket():
-    # @NOTE: we're only subscribing to trade_updates for main here
-    wss_account_url = "wss://api.alpaca.markets/stream"
+    if os.getenv("ENVIRONMENT") in ["core", "main"]:
+        wss_account_url = "wss://api.alpaca.markets/stream"
+    else:
+        wss_account_url = "wss://paper-api.alpaca.markets/stream"
+
     api_key = os.getenv("APCA_API_KEY_ID")
     api_sec = os.getenv("APCA_API_SECRET_KEY")
     auth_message = json.dumps({"action": "auth", "key": api_key, "secret": api_sec})
@@ -112,7 +114,7 @@ async def account_socket():
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(wss_account_url) as websocket:
             await websocket.send_str(auth_message)
-
+            logging.info("Sent account authentication message")
             # Receive authentication response
             response = await websocket.receive()
             if response.type == aiohttp.WSMsgType.TEXT:
@@ -132,8 +134,9 @@ async def account_socket():
                 return
 
             if (
-                isinstance(response_data, list)
-                and response_data[0].get("T") == "success"
+                isinstance(response_data, dict)
+                and response_data.get("stream") == "authorization"
+                and response_data.get("data", {}).get("status") == "authorized"
             ):
                 subscription_message = json.dumps(
                     {"action": "listen", "data": {"streams": ["trade_updates"]}}

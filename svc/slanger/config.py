@@ -22,8 +22,9 @@ SKIP_PATHS = [
     "/health_check_readiness",
     "/health_check_startup",
 ]
+# PRE and POST process lists are included here so that only they are able to run instead of other functions not included in the list
 PREPROCESS = ["buy_side_only", "sell_side_only"]
-POSTPROCESS = ["half_supertrend"]
+POSTPROCESS = ["trailing_stop", "half_supertrend"]
 
 COMMENTS = ["sl/tp", "Close entry(s) order Long", "Close entry(s) order Short"]
 

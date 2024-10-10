@@ -22,7 +22,10 @@ def market():
         app.logger.debug("Market Order Data: %s", order_data)
         order = api.submit_order(order_data=order_data)
         app.logger.debug("Market Order: %s", order)
-        response_data = {"message": "Market order processed successfully"}
+        response_data = {
+            "message": "Market order processed successfully",
+            "postprocess": g.data.get("postprocess")
+        }
         return jsonify(response_data), 200
     except Exception as e:
         app.logger.error("Error processing Market order request: %s", str(e))

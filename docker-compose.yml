@@ -77,32 +77,32 @@ services:
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
 
   
-  # sentimentsheperd:
-  #   build:
-  #     dockerfile: Dockerfile.sentimentsheperd
-  #     args:
-  #       SVC_DIR: ./svc/sentimentsheperd
-  #   restart: always
-  #   container_name: sentimentsheperd-${ENVIRONMENT}
-  #   profiles:
-  #     - dev
-  #   labels:
-  #     - "profile=dev"
-  #   volumes:
-  #     - ./svc/sentimentsheperd/:/app/
-  #   networks:
-  #     - core_network
-  #   environment:
-  #     - REDIS_HOST=${REDIS_HOST:-redis-stack}
-  #     - REDIS_PORT=${REDIS_PORT:-6379}
-  #     - ENVIRONMENT=${ENVIRONMENT}
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
+  sentimentsheperd:
+    build:
+      dockerfile: Dockerfile.sentimentsheperd
+      args:
+        SVC_DIR: ./svc/sentimentsheperd
+    restart: always
+    container_name: sentimentsheperd-${ENVIRONMENT}
+    profiles:
+      - dev
+    labels:
+      - "profile=dev"
+    volumes:
+      - ./svc/sentimentsheperd/:/app/
+    networks:
+      - core_network
+    environment:
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - ENVIRONMENT=${ENVIRONMENT}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   slanger:
     build:
@@ -154,6 +154,7 @@ services:
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - DEBUG=${DEBUG:-true}
       - ENVIRONMENT=${ENVIRONMENT}
+      - REGULARS=${REGULARS}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
@@ -276,6 +277,8 @@ services:
     environment:
       - APCA_API_KEY_ID=${APCA_API_KEY_ID}
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - REGULARS=${REGULARS}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}}
 

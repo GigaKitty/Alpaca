@@ -41,17 +41,15 @@ def preprocess():
     """
     Add an orders before_request to handle preprocessing.
     All orders go through this preprocessor to qualify them for processing.
-    This is to ensure consistency and to avoid losses.
-    This is not intended to replace other order types like limit, stop, etc.
     Essentailly, it's to preprocess the Data object and set defaults before it's sent to the order endpoints.
-    Keep it fast and simple......
+    Keep it fast 🐇 and simple......
     """
     # Set the global data to the request.json
     g.data = request.json
 
     # Exit Early fail often 🦉 Validate the signature of the request coming in
     if sec.authorize(g.data) != True and request.path not in SKIP_PATHS:
-        return jsonify({"Unauthorized": "Failed to process signature"}), 401
+        return jsonify({"Unauthorized": "🤚 Failed to process signature"}), 401
 
     # Skip endpoints in the list 🦘
     if request.path in SKIP_PATHS:
@@ -101,7 +99,10 @@ def preprocess():
         # Actions like closing orders, etc.
         # Preprocess functions are ran after the global data operations are done
         # and g.data.get("preprocess") in PREPROCESS
-        preprocess_list = g.data.get("preprocess", [])
+        g.data["preprocess"] = g.data.get("preprocess", [])
+        g.data["postprocess"] = g.data.get("postprocess", [])
+
+        preprocess_list = g.data.get("preprocess")
         if isinstance(preprocess_list, list) and any(
             item in PREPROCESS for item in preprocess_list
         ):
@@ -109,6 +110,6 @@ def preprocess():
                 if func == "buy_side_only":
                     result = buy_side_only(g.data)
                     return result
-
+        
     # Uncomment to debug the data object
     # app.logger.debug("📭 Data: %s", g.data)

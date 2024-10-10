@@ -33,7 +33,7 @@ def qty(data):
 
     if data.get("qty") is not None:
         return round(data.get("qty"))
-    elif buying_power > 0 and data.get("price") is not None:
+    elif buying_power > 0 and data.get("price") is not None and float(data.get("price")) > 1: # @NOTE: Ensures we have buying power, price, and gets rid of penny stocks less than $1 because we don't care about those at all
         buying_power = round(buying_power * data["risk"])
         price = round(float(data.get("price")))
         return round(buying_power / price)

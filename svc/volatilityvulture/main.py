@@ -121,16 +121,17 @@ async def send_order(action, symbol, data):
     data = {
         "action": action,
         "close": data["Close"],
-        "comment": "macd-rsi-bb-earnyearn",
+        "comment": "macd-rsi-bb-volatilityvulture",
         "high": data["High"],
         "interval": "1m",
         "price": data["Close"],
         "low": data["Low"],
         "open": data["Open"],
-        "risk": os.getenv("VOLATILITYVULTURE_RISK", 0.001),
+        "risk": os.getenv("RISK_TOLERANCE", 0.001),
         "signature": tv_sig,
         "ticker": symbol,
         "volume": data["Volume"],
+        "postprocess": ["trailing_stop"],
     }
 
     # Sending a POST request with JSON data
@@ -224,10 +225,9 @@ async def update_list():
         ]  # Get the top 100 most active stocks
         earnings_list = await get_list("earnings_list")
         aristocrats_list = await get_list("dividend_aristocrats")
-        open_positions = await get_all_positions()
+        #open_positions = await get_all_positions()
         # omit existing positions and stocks from the earnings and aristocrats list
-        omit_list = earnings_list + aristocrats_list + open_positions
-
+        omit_list = earnings_list + aristocrats_list
         # Filter the most active stocks
         filtered_stocks = sorted(
             [
@@ -236,7 +236,6 @@ async def update_list():
                 if stock["symbol"] not in omit_list
             ]
         )
-
         await publish_list("volatilityvulture_list", json.dumps(filtered_stocks))
         logging.info(f"Published list: {filtered_stocks} to volatilityvulture_list")
 
@@ -254,6 +253,8 @@ async def calc():
 
 
 async def main():
+    await update_list()
+
     # Run the redis_listener and scheduler in the same event loop
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
@@ -270,7 +271,7 @@ async def main():
         "cron",
         day_of_week="mon-fri",
         hour="9-20",
-        minute="*/1",  # Every 5 minutes
+        minute="*/1",  # Every 1 minute
         timezone="America/New_York",
     )
     scheduler.start()
