@@ -79,8 +79,6 @@ def trailing_stop(data, response):
 def trailing_stop_tiered(data, response):
     if response.status_code == 200:
         app.logger.debug("🤠 Trailing Order")
-        #app.logger.debug(f"Data: {g.data}")
-        # send an order request to the trailing endpoint
         # Prepare the data for the POST request
         trailing_data = {
             "ticker": data.get("ticker"),
@@ -119,20 +117,28 @@ def trailing_stop_tiered(data, response):
                 continue
 
         try:
-            qty_available_rounded = math.floor(float(g.data.get("qty_available")))
-            trailing_stop_data = TrailingStopOrderRequest(
-                symbol=g.data.get("ticker"),
-                qty=qty_available_rounded,
-                side=g.data.get("opps"),
-                time_in_force=TimeInForce.GTC,
-                after_hours=g.data.get("after_hours"),
-                trail_percent=g.data.get("trail_percent"),
-                client_order_id=g.data.get("order_id") + "trailing",
-            )
-            app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
+            qty_available = float(g.data.get("qty_available"))
+            if qty_available >= 5:
+                chunk_size = math.floor(qty_available / 5)
+                trailing_percents = [0.1, 0.2, 0.3, 0.4, 0.5]
+                for i in range(5):
+                    trailing_stop_data = TrailingStopOrderRequest(
+                        symbol=g.data.get("ticker"),
+                        qty=chunk_size,
+                        side=g.data.get("opps"),
+                        time_in_force=TimeInForce.GTC,
+                        after_hours=g.data.get("after_hours"),
+                        trail_percent=trailing_percents[i],
+                        client_order_id=g.data.get("order_id") + f"trailing_{i}",
+                    )
+                    app.logger.debug("Trailing Stop Data: %s", trailing_stop_data)
 
-            trailing_stop_order = api.submit_order(order_data=trailing_stop_data)
-            app.logger.debug("Trailing Stop Order: %s", trailing_stop_order)
+                    trailing_stop_order = api.submit_order(order_data=trailing_stop_data)
+                    app.logger.debug("Trailing Stop Order: %s", trailing_stop_order)
+            else:
+                app.logger.error("Quantity available is less than 5, cannot split into chunks.")
+                error_message = {"error": "Quantity available is less than 5, cannot split into chunks."}
+                return make_response(jsonify(error_message), 400)
 
             response_data = {"message": "Webhook received and processed successfully"}
             return make_response(jsonify(response_data), 200)
@@ -170,10 +176,6 @@ def half_supertrend(data, response):
     thread.start()
 
 
-def tts_trades():
-    print("TTS trades")
-
-
 @app.after_request
 @timeit_ns
 def after_request(response):
@@ -188,5 +190,7 @@ def after_request(response):
                     half_supertrend(g.data, response)
                 elif func == "trailing_stop":
                     trailing_stop(g.data, response)
+                elif func == "trailing_stop_tiered":
+                    trailing_stop_tiered(g.data, response)
     
     return response  # @IMPORTANT: Do not remove this line

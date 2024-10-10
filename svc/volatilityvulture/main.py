@@ -131,7 +131,7 @@ async def send_order(action, symbol, data):
         "signature": tv_sig,
         "ticker": symbol,
         "volume": data["Volume"],
-        "postprocess": ["trailing_stop"],
+        "postprocess": ["trailing_stop_tiered"],
     }
 
     # Sending a POST request with JSON data
