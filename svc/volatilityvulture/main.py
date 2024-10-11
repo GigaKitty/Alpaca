@@ -112,7 +112,7 @@ async def read_data_from_marketstore(symbol):
         return None
 
 
-async def send_order(action, symbol, data):
+async def send_order(action, stock, data):
     """
     Sends a POST request to the TradingView webhook URL
     required fields: action, comment, low, high, close, volume, interval, signature, ticker, trailing
@@ -127,9 +127,9 @@ async def send_order(action, symbol, data):
         "price": data["Close"],
         "low": data["Low"],
         "open": data["Open"],
-        "risk": os.getenv("RISK_TOLERANCE", 0.001),
+        "risk": os.getenv("RISK", 0.001), # Set a default low so that if it's not set it will be a low value
         "signature": tv_sig,
-        "ticker": symbol,
+        "ticker": stock,
         "volume": data["Volume"],
         "postprocess": ["trailing_stop_tiered"],
     }
@@ -154,12 +154,12 @@ async def process_stock(stock):
         logging.error(f"No data found for {stock}")
         return
     else:
-        if len(result) < 14:  # Assuming length=7 for Supertrend
+        if len(result) < 10:  # Assuming length=10 for Supertrend
             logging.error(f"Not enough data to calculate Supertrend for {stock}")
             return
 
         # Define Supertrend parameters
-        length = 7
+        length = 10
         multiplier = 3.0
 
         # Calculate the Supertrend
@@ -186,27 +186,33 @@ async def process_stock(stock):
         weight_rsi = 0.25
         weight_macd = 0.25
 
-        # Calculate scores for each indicator
-        score_supertrend = (
-            1 if last_row["Close"] > last_row[f"SUPERTd_{length}_{multiplier}"] else -1
-        )
-        score_rsi = 1 if last_row_rsi < 30 else -1 if last_row_rsi > 70 else 0
-        score_macd = 1 if last_row_macd > last_row_macd_signal else -1
+        # Log the calculated values for debugging
+        logging.info(f"Supertrend: {last_row['SUPERT_10_3.0']}")
+        logging.info(f"RSI: {last_row_rsi}")
+        logging.info(f"MACD: {last_row_macd}")
+        logging.info(f"MACD Signal: {last_row_macd_signal}")
 
-        # Calculate weighted score
-        weighted_score = (
-            weight_supertrend * score_supertrend
-            + weight_rsi * score_rsi
-            + weight_macd * score_macd
-        )
+        # Determine buy or sell signal using weighted indicators
+        supertrend_signal = 1 if last_row['SUPERT_10_3.0'] > 0 else -1
+        rsi_signal = 1 if last_row_rsi < 30 else -1 if last_row_rsi > 70 else 0
+        macd_signal = 1 if last_row_macd > last_row_macd_signal else -1 if last_row_macd < last_row_macd_signal else 0
 
-        # Determine signal based on weighted score
-        if weighted_score > 0:
-            signal = "buy"
+        # Calculate composite score
+        composite_score = (weight_supertrend * supertrend_signal) + (weight_rsi * rsi_signal) + (weight_macd * macd_signal)
+
+        # Determine final signal based on composite score
+        if composite_score > 0:
+            action = "buy"
+            logging.info(f"Buy signal generated for {stock}")
+        elif composite_score < 0:
+            action = "sell"
+            logging.info(f"Sell signal generated for {stock}")
         else:
-            signal = "sell"
+            action = None
+            logging.info(f"No clear signal for {stock}")
 
-        await send_order(signal, stock, last_row)
+        if action:
+            await send_order(action, stock, last_row)
 
 
 async def update_list():

@@ -6,7 +6,7 @@ import logging
 import os
 import redis.asyncio as aioredis
 
-
+REGULARS = os.getenv("REGULARS", "").split(",")
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 

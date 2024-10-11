@@ -64,6 +64,26 @@ def preprocess():
     ):
         return jsonify({"Market Closed": "📉 Market is closed for equity orders"}), 400
 
+    # Reject stocks with a price over 1000 🫷
+    if float(g.data.get("close")) >= 1000:
+        return (
+            jsonify(
+                {"Price too high": "📈 The price of this stock is too damn high 🤚"}
+            ),
+            400,
+        )
+    elif float(g.data.get("close")) <= 10:
+        return (
+            jsonify({"Price too low": "📉 The price of this stock is too damn low 🤚"}),
+            400,
+        )
+    
+    elif float(g.data.get("close")) <= 5:
+        return (
+            jsonify({"Penny Stock": "💸 This stock is a penny stock 🫨 🤚"}),
+            400,
+        )
+
     if g.data not in [None, {}]:
         #####################
         # Prepare thy data 😇
@@ -77,8 +97,10 @@ def preprocess():
         # Calc data
         g.data["risk"] = calc.risk(
             g.data
-        )  # @NOTE: Risk needs to be calculated first before qty and notional
-        
+        ) 
+        g.data["base"] = 10 # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
+        # @NOTE: Risk and base needs to be calculated first before qty and notional
+
         #g.data["limit_price"] = calc.limit_price(g.data)
         g.data["notional"] = calc.notional(g.data)
         g.data["profit"] = calc.profit(g.data)
@@ -110,6 +132,6 @@ def preprocess():
                 if func == "buy_side_only":
                     result = buy_side_only(g.data)
                     return result
-        
+
     # Uncomment to debug the data object
     # app.logger.debug("📭 Data: %s", g.data)

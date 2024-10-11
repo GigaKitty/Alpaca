@@ -181,7 +181,7 @@ def send_order(action, symbol, data):
         "price": data["Close"].iloc[-1],
         "low": data["Low"].iloc[-1],
         "open": data["Open"].iloc[-1],
-        "risk": os.getenv("RISK", 0.001),
+        "risk": os.getenv("RISK", 0.01),
         "signature": tv_sig,
         "ticker": symbol,
         "volume": data["Volume"].iloc[-1],

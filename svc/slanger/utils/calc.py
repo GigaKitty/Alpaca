@@ -27,18 +27,24 @@ def qty(data):
     """
     - If qty is set statically in the reqeust then keep that value
     - If qty is not set, calculate the quantity based on the data buying power
-    - Else return 1
+    - Else return base
+    - at the end we add base to the qty to ensure we have a an extra reserve of 10 shares to let them run.
+    - Therefore the minimum qty will be 20 shares so gotta have that 💰💸🪙
     """
     buying_power = float(data["acc"].buying_power)
-
+    base = g.data.get("base")
     if data.get("qty") is not None:
         return round(data.get("qty"))
-    elif buying_power > 0 and data.get("price") is not None and float(data.get("price")) > 1: # @NOTE: Ensures we have buying power, price, and gets rid of penny stocks less than $1 because we don't care about those at all
-        buying_power = round(buying_power * data["risk"])
-        price = round(float(data.get("price")))
-        return round(buying_power / price)
+    elif buying_power > 0 and data.get("price") is not None:
+        market_value = round(buying_power * data["risk"]) # Calculate the market value based on the account buying power and risk
+        divisible = round(market_value / float(data.get("price"))) # Round to the nearest whole number so we know how many shares to allocate
+        qty = base * round(divisible / base) # Round to the nearest base number likely 10
+        if qty >= base:
+            return qty + base
+        else:
+            return base + base
     else:
-        return 1
+        return base + base
 
 
 def qty_available(data, api):
@@ -191,8 +197,8 @@ def risk(data):
     """
     if data.get("risk"):
         return float(data.get("risk", 0.01))
-    elif os.getenv("ENVIRONMENT") == "dev":
-        return 0.025
+    elif os.getenv("RISK"):
+        return float(os.getenv("RISK", 0.01))
     else:
         return 0.01
 
