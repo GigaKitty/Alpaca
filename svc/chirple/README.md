@@ -7,3 +7,5 @@ redlis-cli
 PUBLISH chirple "sell 100 shares of AAPL"
 ```
 If it's all hooked up properly to the host then it will output the message to the speakers. This relies on however a linux host that is running pulse server and has the speakers connected to it.
+
+#TODO make chirple an environment specific service with different accents for each environment.

@@ -1,17 +1,14 @@
-import asyncio
-import json
-import os
-import redis
-import logging
-import datetime
-import numpy as np  # Import numpy
-
-# import requests
-import redis.asyncio as aioredis
-import pymarketstore as pymkts
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, ASYNCHRONOUS
+import asyncio
+import datetime
+import json
+import logging
+import numpy as np
+import os
+import pymarketstore as pymkts
+import redis
+import redis.asyncio as aioredis
 
 # InfluxDB configuration
 INFLUXDB_URL = "http://influxdb:8086"
@@ -45,6 +42,7 @@ redis = aioredis.Redis(
 
 
 # @TODO: add other types like trades, quotes, etc.
+# @TODO: add crypto support data otherwise except for performance this is done.
 def is_bar_data(data):
     """
     Check if the incoming data is bar data.
@@ -105,10 +103,12 @@ async def store_marketstore_bars(data):
         )
 
         # Determine the symbol and timeframe
-        symbol = data["S"].replace("/", "-")  # Replace '/' with '_' this is because the / is used as a delimiter in Marketstore
-        # Write to Marketstore       
+        symbol = data["S"].replace(
+            "/", "-"
+        )  # Replace '/' with '_' this is because the / is used as a delimiter in Marketstore
+        # Write to Marketstore
         marketstore_client.write(df, f"{symbol}/{timeframe}/{attribute_group}")
-        
+
     except Exception as e:
         print(f"Error storing data: {e}")
 
@@ -150,5 +150,3 @@ if __name__ == "__main__":
     Entry point for the application
     """
     asyncio.run(main())
-
-# @TODO: add crypto support data otherwise except for performance this is done.

@@ -31,11 +31,10 @@ async def update_list_periodically(update_interval, websocket):
     while True:
         # @IMP: add a global redis item for this list called skip list
         ticker_list = ["aristocrats_list", "earnings_list", "volatilityvulture_list"]
-        logging.debug(f"skip_list: {ticker_list}")
         ticker_list = await get_list(ticker_list)
-        ticker_list = ticker_list + REGULARS
-
-        logging.info(f"Updating subscription to the following tickers: {ticker_list}")
+        ticker_list = ticker_list
+        ticker_len = len(ticker_list)
+        logging.info(f"Updating subscription with {ticker_len} tickers")
         subscription_message = json.dumps(
             {
                 "action": "subscribe",
@@ -100,7 +99,8 @@ async def broadcast(message, channel):
     # Publish message to Redis
     await redis_client.publish(channel, message)
 
-
+#@IMP: let's also make the stream channel work for both the paper and live accounts.
+# if we do that we can monitor for instance chirple with two voices and two different accounts
 async def account_socket():
     if os.getenv("ENVIRONMENT") in ["core", "main"]:
         wss_account_url = "wss://api.alpaca.markets/stream"
@@ -254,6 +254,7 @@ async def stocks_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
+                        #logging.info(f"Stocks data: {data}")
                         await broadcast(data, "stocks_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Stocks WebSocket connection closed")

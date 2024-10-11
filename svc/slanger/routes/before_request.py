@@ -98,7 +98,7 @@ def preprocess():
         g.data["risk"] = calc.risk(
             g.data
         ) 
-        g.data["base"] = 10 # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
+        g.data["base"] = 5 # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
         # @NOTE: Risk and base needs to be calculated first before qty and notional
 
         #g.data["limit_price"] = calc.limit_price(g.data)

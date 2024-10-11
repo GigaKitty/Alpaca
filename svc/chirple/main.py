@@ -39,7 +39,9 @@ async def speakoutloud(message):
     # Prepare the text for TTS
     tts_text = f"{side} side {order_type} order on {ticker} for {filled_qty} shares @ ${price} holding {position_qty} shares of {ticker} with a market value of {position_value}."
     print(f"Filled order: {tts_text}")
-    tts = gTTS(text=tts_text, lang="en-nz") # @NOTE: can use other lang like en-au, en-uk, etc.
+    tts = gTTS(
+        text=tts_text, lang="en-uk", slow=False
+    )  # @NOTE: can use other lang like en-au, en-uk, etc.
 
     # Save the TTS output to a memory buffer instead of a file
     mp3_fp = io.BytesIO()

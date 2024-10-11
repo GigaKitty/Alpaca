@@ -6,7 +6,7 @@ import requests
 from datetime import datetime
 from pytz import timezone
 from config import app
-
+from config import api
 tz = timezone("America/New_York")
 today = datetime.now(tz).date().isoformat()
 
@@ -42,7 +42,6 @@ def get_orders_for_ticker(ticker):
     start_of_day = datetime.combine(today, datetime.min.time()).isoformat() + "Z"
     end_of_day = datetime.combine(today, datetime.max.time()).isoformat() + "Z"
 
-
     headers = {
         "APCA-API-KEY-ID": os.getenv("APCA_API_KEY_ID"),
         "APCA-API-SECRET-KEY": os.getenv("APCA_API_SECRET_KEY"),
@@ -71,8 +70,35 @@ def get_orders_for_ticker(ticker):
 
         all_orders.extend(orders)
 
-        end_of_day = orders[-1][
-            "submitted_at"
-        ]
+        end_of_day = orders[-1]["submitted_at"]
 
     return all_orders
+
+
+async def check_order_status(order_id, max_attempts=10):
+    for attempt in range(max_attempts):
+        if attempt >= max_attempts:
+            print("💪 We're maxed out")
+            return False
+
+        ord = api.get_order_by_client_id(order_id)
+        app.logger.debug(f"Order status: {ord.status}")
+
+        # Define the possible values for ord.status
+        invalid = {"canceled", "expired", "replaced", "pending_cancel"}
+        valid = {"filled", "partially_filled"}
+
+        app.logger.debug(f"Order status: {ord}")
+        if ord.status in invalid:
+            print(f"order status: {ord.status}")
+            app.logger.debug(f"Order status: is {ord.status} so we're breaking")
+            break
+        elif ord.status in valid:
+            print(f"order status: {ord.status}")
+            app.logger.debug(
+                f"Order status: is {ord.status} so we're continuing to place order"
+            )
+        else:
+            sleep(5)
+            continue
+    return True

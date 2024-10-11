@@ -10,7 +10,7 @@ import pandas_ta as ta
 import pymarketstore as pymkts
 import random
 
-import redis
+# import redis
 import redis.asyncio as aioredis
 import requests
 
@@ -31,6 +31,7 @@ timeframe = "1Min"
 attribute_group = "OHLCV"
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
 list_name = "earnings_list"
+channel_name = "stocks_channel"
 
 client = StockHistoricalDataClient(
     os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY")
@@ -44,8 +45,6 @@ pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
 
-
-r = redis.Redis(host="redis-stack-core", port=6379)
 
 # Redis connection details
 redis_host = os.getenv("REDIS_HOST", "redis-stack")
@@ -66,9 +65,10 @@ logging.basicConfig(level=logging.INFO)
 
 # Track the last buy timestamp for each symbol
 last_buy_timestamp = {}
-cooldown_period = 25  # Number of bars to wait before allowing another buy
+cooldown_period = 25  # Number of bars to wait before allowing another signal
 ########################################
 ########################################
+
 
 # @TODO: further this by looking at the overall trend of past earnings as well as this period upcoming to determine overall direction.
 async def publish_list(list_name, message):
@@ -77,9 +77,14 @@ async def publish_list(list_name, message):
         await redis.lpush(list_name, message)
         logging.info(f"Published message: {message} to list: {list_name}")
     except aioredis.exceptions.TimeoutError:
-        logging.error(f"Timeout error while publishing message: {message} to list: {list_name}")
+        logging.error(
+            f"Timeout error while publishing message: {message} to list: {list_name}"
+        )
     except aioredis.exceptions.RedisError as e:
-        logging.error(f"Redis error: {e} while publishing message: {message} to list: {list_name}")
+        logging.error(
+            f"Redis error: {e} while publishing message: {message} to list: {list_name}"
+        )
+
 
 async def trend_getter(symbol):
     try:
@@ -144,7 +149,7 @@ async def fetch_earnings_calendar():
         international=False,
     )
 
-    #@TODO: maybe remove or improve because now we're shorting enabled so we can be on either side.
+    # @TODO: maybe remove or improve because now we're shorting enabled so we can be on either side.
     if "earningsCalendar" in earnings_calendar:
         for earning in earnings_calendar["earningsCalendar"]:
             if (
@@ -160,7 +165,7 @@ async def fetch_earnings_calendar():
                     earnings.append(earning["symbol"])
 
     else:
-        logging.error("😭 No earnings data found for the specified date range.")   
+        logging.error("😭 No earnings data found for the specified date range.")
 
     logging.info(f"📊 {len(earnings)} symbols added to the earnings list. 📊")
     await publish_list(list_name, json.dumps(earnings))
@@ -198,13 +203,9 @@ def send_order(action, symbol, data):
             logging.error("Response is not in JSON format.")
     else:
         logging.error(f"HTTP Error encountered: {response}")
-        
+
 
 async def calc_strat(ticker, data):
-    """
-    Calculates multiple strategies using the ta library
-    @TODO: If websocket goes offline then it's missing those candles in between when the system was offline.
-    """
     global last_buy_timestamp
     df = pd.DataFrame(data)
 
@@ -293,21 +294,23 @@ async def calc_strat(ticker, data):
     sell_condition = (
         recent_anomalies["MACD_Sell"].any() and recent_anomalies["RSI_Sell"].any()
     )
- 
+
     current_timestamp = df.index[-1].timestamp()
 
-    if buy_condition:
-        if ticker not in last_buy_timestamp or (
-            current_timestamp - last_buy_timestamp[ticker]
-        ) > (cooldown_period * 60):
-            logging.info(f"Buy condition met in {ticker}")   
+    if ticker not in last_buy_timestamp or (
+        current_timestamp - last_buy_timestamp[ticker]
+    ) > (cooldown_period * 60):
+
+        if buy_condition:
+            logging.info(f"Buy condition met in {ticker}")
             send_order("buy", ticker, data)
             last_buy_timestamp[ticker] = current_timestamp
 
-    # @TODO: For sell condition maybe we should check last time and ALSO if sell conditions are later than the buy.
-    if sell_condition:
-        logging.info(f"Sell condition met in {ticker}")
-        send_order("sell", ticker, data)
+        elif sell_condition:
+            logging.info(f"Sell condition met in {ticker}")
+            send_order("sell", ticker, data)
+            last_buy_timestamp[ticker] = current_timestamp
+
 
 
 async def read_data_from_marketstore(symbol):
@@ -342,15 +345,27 @@ async def get_list(key):
     return list_data
 
 
-async def spawn_calc():
-    # Fetch the redis list
+async def monitor_redis_channel():
     earnings = await get_list(list_name)
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(channel_name)
 
-    # Loop through the list and calculate the strategy
-    if earnings:
-        for symbol in earnings:
-            data = await read_data_from_marketstore(symbol)
-            await calc_strat(symbol, data)
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            try:
+                message_data_list = json.loads(message["data"].decode("utf-8"))
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received.")
+                continue
+
+            for message_data in message_data_list:
+                symbol = message_data.get("S")
+                if symbol in earnings:
+                    logging.info(f"Processing symbol: {symbol}")
+                    data = await read_data_from_marketstore(symbol)
+                    await calc_strat(symbol, data)
+
+    await redis.close()
 
 
 async def scheduler_task(scheduler):
@@ -365,10 +380,19 @@ async def scheduler_task(scheduler):
 
 async def main():
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(fetch_earnings_calendar, "interval", minutes=1)
-    scheduler.add_job(spawn_calc, "interval", minutes=1, seconds=0)
+    scheduler.add_job(
+        fetch_earnings_calendar,
+        "cron",
+        day_of_week="mon-fri",
+        hour="9-20",
+        minute="*/5",  # Every 5 minutes
+        timezone="America/New_York",
+    )
 
-    await asyncio.gather(scheduler_task(scheduler))
+    await asyncio.gather(
+        monitor_redis_channel(),
+        scheduler_task(scheduler),
+    )
 
 
 if __name__ == "__main__":

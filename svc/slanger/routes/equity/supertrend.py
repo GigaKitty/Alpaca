@@ -72,7 +72,3 @@ def order():
         app.logger.error("Error processing request: %s", str(e))
         error_message = {"error": "Failed to process webhook request"}
         return jsonify(error_message), 400
-    
-    finally:
-        print("Finally block")
-        # confirm the trade and if not we retry to ensure the trade is executed and is on the right side

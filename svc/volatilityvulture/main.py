@@ -1,4 +1,3 @@
-from alpaca.trading.client import TradingClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from urllib.parse import urlencode, urlunparse
 import asyncio
@@ -9,9 +8,9 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 import pymarketstore as pymkts
-import redis
 import redis.asyncio as aioredis
 import requests
+import logging
 
 """
 This service monitors the most active stocks and determines the trading strategy based on the volatility of the stock.
@@ -25,11 +24,9 @@ paper = True if environment != "main" else False
 marketstore_client = pymkts.Client(f"http://marketstore:5993/rpc")
 tv_sig = os.getenv("TRADINGVIEW_SECRET")
 hook_url = os.getenv("VOLATILITYVULTURE_ORDER_ENDPOINT")
+list_name = "volatilityvulture_list"
+channel_name = "stocks_channel"
 
-
-api = TradingClient(
-    os.getenv("APCA_API_KEY_ID"), os.getenv("APCA_API_SECRET_KEY"), paper=paper
-)
 BASE_URL = (
     "https://data.alpaca.markets/v1beta1/screener/stocks/most-actives?by=volume&top=100"
 )
@@ -39,9 +36,9 @@ pd.set_option("display.expand_frame_repr", False)
 pd.set_option("max_colwidth", None)
 pd.set_option("display.max_rows", None)
 
-redis_host = os.getenv("REDIS_HOST", "localhost")
+redis_host = os.getenv("REDIS_HOST", "redis-stack")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
-redis_conn = aioredis.Redis(
+redis = aioredis.Redis(
     host=redis_host,
     port=redis_port,
     socket_timeout=10,  # Increase the timeout value
@@ -49,6 +46,9 @@ redis_conn = aioredis.Redis(
         host="redis-stack", port=redis_port, max_connections=10
     ),
 )
+
+logging.basicConfig(level=logging.INFO)
+
 
 
 def build_url(base_url, params):
@@ -58,7 +58,7 @@ def build_url(base_url, params):
 
 
 async def get_list(key):
-    list_data = await redis_conn.lrange(key, 0, -1)
+    list_data = await redis.lrange(key, 0, -1)
     if list_data:
         list_data = json.loads(list_data[0].decode("utf-8"))
     return list_data
@@ -66,8 +66,8 @@ async def get_list(key):
 
 async def publish_list(list_name, message):
     try:
-        await redis_conn.delete(list_name)
-        await redis_conn.lpush(list_name, message)
+        await redis.delete(list_name)
+        await redis.lpush(list_name, message)
         logging.info(f"Published message: {message} to list: {list_name}")
     except aioredis.exceptions.TimeoutError:
         logging.error(
@@ -77,11 +77,6 @@ async def publish_list(list_name, message):
         logging.error(
             f"Redis error while publishing message: {message} to list: {list_name}: {e}"
         )
-
-
-async def get_all_positions():
-    positions = api.get_all_positions()
-    return [position.symbol for position in positions]
 
 
 async def read_data_from_marketstore(symbol):
@@ -127,7 +122,9 @@ async def send_order(action, stock, data):
         "price": data["Close"],
         "low": data["Low"],
         "open": data["Open"],
-        "risk": os.getenv("RISK", 0.001), # Set a default low so that if it's not set it will be a low value
+        "risk": os.getenv(
+            "RISK", 0.001
+        ),  # Set a default low so that if it's not set it will be a low value
         "signature": tv_sig,
         "ticker": stock,
         "volume": data["Volume"],
@@ -139,7 +136,7 @@ async def send_order(action, stock, data):
 
     if response.status_code == 200:
         try:
-            logging.info(f"Order sent successfully for {symbol}")
+            logging.info(f"Order sent successfully for {stock}")
         except requests.exceptions.JSONDecodeError:
             logging.error("Response is not in JSON format.")
     else:
@@ -167,7 +164,9 @@ async def process_stock(stock):
 
         # Check if the DataFrame is empty after dropping NaN values
         if result.empty:
-            logging.error(f"DataFrame is empty after calculating Supertrend for {stock}")
+            logging.error(
+                f"DataFrame is empty after calculating Supertrend for {stock}"
+            )
             return
 
         last_row = result.iloc[-1]
@@ -193,12 +192,20 @@ async def process_stock(stock):
         logging.info(f"MACD Signal: {last_row_macd_signal}")
 
         # Determine buy or sell signal using weighted indicators
-        supertrend_signal = 1 if last_row['SUPERT_10_3.0'] > 0 else -1
+        supertrend_signal = 1 if last_row["SUPERT_10_3.0"] > 0 else -1
         rsi_signal = 1 if last_row_rsi < 30 else -1 if last_row_rsi > 70 else 0
-        macd_signal = 1 if last_row_macd > last_row_macd_signal else -1 if last_row_macd < last_row_macd_signal else 0
+        macd_signal = (
+            1
+            if last_row_macd > last_row_macd_signal
+            else -1 if last_row_macd < last_row_macd_signal else 0
+        )
 
         # Calculate composite score
-        composite_score = (weight_supertrend * supertrend_signal) + (weight_rsi * rsi_signal) + (weight_macd * macd_signal)
+        composite_score = (
+            (weight_supertrend * supertrend_signal)
+            + (weight_rsi * rsi_signal)
+            + (weight_macd * macd_signal)
+        )
 
         # Determine final signal based on composite score
         if composite_score > 0:
@@ -231,7 +238,7 @@ async def update_list():
         ]  # Get the top 100 most active stocks
         earnings_list = await get_list("earnings_list")
         aristocrats_list = await get_list("dividend_aristocrats")
-        #open_positions = await get_all_positions()
+        # open_positions = await get_all_positions()
         # omit existing positions and stocks from the earnings and aristocrats list
         omit_list = earnings_list + aristocrats_list
         # Filter the most active stocks
@@ -249,19 +256,40 @@ async def update_list():
         logging.error(f"HTTP Error encountered: {response}")
 
 
-async def calc():
-    list_data = await get_list("volatilityvulture_list")
-    if list_data:
-        for stock in list_data:
-            await process_stock(stock)
-    else:
-        logging.error("No data found in volatilityvulture_list")
+async def monitor_redis_channel():
+    volatility = await get_list(list_name)
+    print(f"Monitoring channel: {channel_name}")
+    print(f"Subscribed to list: {volatility}")
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(channel_name)
+
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            try:
+                message_data_list = json.loads(message["data"].decode("utf-8"))
+            except json.JSONDecodeError:
+                logging.error("Invalid JSON received.")
+                continue
+            
+            for message_data in message_data_list:
+                symbol = message_data.get("S")
+                if symbol in volatility:
+                    await process_stock(symbol)
+
+    await redis.close()
+
+
+async def scheduler_task(scheduler):
+    """
+    Starts the scheduler to run tasks at specified intervals.
+    """
+    scheduler.start()
+    # Keep the scheduler running indefinitely
+    while True:
+        await asyncio.sleep(1)
 
 
 async def main():
-    await update_list()
-
-    # Run the redis_listener and scheduler in the same event loop
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         update_list,
@@ -272,22 +300,11 @@ async def main():
         timezone="America/New_York",
     )
 
-    scheduler.add_job(
-        calc,
-        "cron",
-        day_of_week="mon-fri",
-        hour="9-20",
-        minute="*/1",  # Every 1 minute
-        timezone="America/New_York",
+    await asyncio.gather(
+        monitor_redis_channel(),
+        scheduler_task(scheduler),
     )
-    scheduler.start()
-
-    while True:
-        await asyncio.sleep(60)  # Keep the loop alive
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    asyncio.run(main())

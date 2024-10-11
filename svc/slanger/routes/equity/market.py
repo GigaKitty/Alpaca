@@ -21,7 +21,7 @@ def market():
         )
         app.logger.debug("Market Order Data: %s", order_data)
         order = api.submit_order(order_data=order_data)
-        app.logger.debug("Market Order: %s", order)
+        #app.logger.debug("Market Order: %s", order)
         response_data = {
             "message": "Market order processed successfully",
             "postprocess": g.data.get("postprocess")

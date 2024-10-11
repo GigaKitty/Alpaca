@@ -31,14 +31,21 @@ def qty(data):
     - at the end we add base to the qty to ensure we have a an extra reserve of 10 shares to let them run.
     - Therefore the minimum qty will be 20 shares so gotta have that 💰💸🪙
     """
+    return 10
     buying_power = float(data["acc"].buying_power)
-    base = g.data.get("base")
+    base = data.get("base")
     if data.get("qty") is not None:
         return round(data.get("qty"))
     elif buying_power > 0 and data.get("price") is not None:
-        market_value = round(buying_power * data["risk"]) # Calculate the market value based on the account buying power and risk
-        divisible = round(market_value / float(data.get("price"))) # Round to the nearest whole number so we know how many shares to allocate
-        qty = base * round(divisible / base) # Round to the nearest base number likely 10
+        market_value = round(
+            buying_power * data["risk"]
+        )  # Calculate the market value based on the account buying power and risk
+        divisible = round(
+            market_value / float(data.get("price"))
+        )  # Round to the nearest whole number so we know how many shares to allocate
+        qty = base * round(
+            divisible / base
+        )  # Round to the nearest base number likely 10
         if qty >= base:
             return qty + base
         else:
@@ -124,10 +131,13 @@ def trail_percent(data: dict) -> float:
     """
     Set the trailing percent value
     """
-    # 0.1 is the lowest it will accept
-    # get current position in $ value and return 1% of that
-    # @EXAMPLE: %1 of $100 is $1
-    return 0.1
+    price = float(data.get("close"))
+    if price >= 200:
+        return 0.25
+    elif price >= 100:
+        return 0.1
+    else:
+        return 1.0
 
 
 def profit_limit_price(data: dict) -> float:
