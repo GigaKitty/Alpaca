@@ -10,6 +10,13 @@ import asyncio
 @app.after_request
 @timeit_ns
 def after_request(response):
+   # Ensure response is a proper Flask response object
+    if isinstance(response, tuple):
+        response = make_response(response)
+
+    if response.status_code != 200:
+        return response
+
     if hasattr(g, "data"):
         postprocess_list = g.data.get("postprocess")
         if isinstance(postprocess_list, list) and any(
@@ -20,7 +27,5 @@ def after_request(response):
                     asyncio.run(trailing_stop(g.data, response))
                 elif func == "trailing_stop_tiered":
                     asyncio.run(trailing_stop_tiered(g.data, response))
-
-
-    response_data = {"message": "Webhook received and processed successfully"}
-    return make_response(jsonify(response_data), 200)
+    
+    return response

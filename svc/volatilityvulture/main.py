@@ -4,14 +4,21 @@ import asyncio
 import json
 import logging
 import os
-import numpy as np
+#import numpy as np
 import pandas as pd
-import pandas_ta as ta
+#import pandas_ta as ta
 import pymarketstore as pymkts
 import redis.asyncio as aioredis
 import requests
 import logging
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 
+registry = CollectorRegistry()
+g = Gauge('job_last_success', 'Last time a job successfully finished', registry=registry)
+g.set_to_current_time()
+
+# Push metrics to the Pushgateway
+push_to_gateway('pushgateway:9091', job='volatilityvulture', registry=registry)
 """
 This service monitors the most active stocks and determines the trading strategy based on the volatility of the stock.
 It creates a list of those volatile stocks and sends it to a redis websocket stream so that it can subscribe back to that list for price updates.
@@ -155,7 +162,7 @@ async def process_stock(stock):
             logging.error(f"Not enough data to calculate Supertrend for {stock}")
             return
 
-        # Define Supertrend parameters
+       # Define Supertrend parameters
         length = 10
         multiplier = 3.0
 
@@ -163,10 +170,9 @@ async def process_stock(stock):
         result.ta.supertrend(length=length, multiplier=multiplier, append=True)
 
         # Check if the DataFrame is empty after dropping NaN values
+        result.dropna(inplace=True)
         if result.empty:
-            logging.error(
-                f"DataFrame is empty after calculating Supertrend for {stock}"
-            )
+            #logging.error(f"DataFrame is empty after calculating Supertrend for {stock}")
             return
 
         last_row = result.iloc[-1]
@@ -187,18 +193,15 @@ async def process_stock(stock):
 
         # Log the calculated values for debugging
         logging.info(f"Supertrend: {last_row['SUPERT_10_3.0']}")
+        logging.info(f"Supertrend Direction: {last_row['SUPERTd_10_3.0']}")
         logging.info(f"RSI: {last_row_rsi}")
         logging.info(f"MACD: {last_row_macd}")
         logging.info(f"MACD Signal: {last_row_macd_signal}")
 
         # Determine buy or sell signal using weighted indicators
-        supertrend_signal = 1 if last_row["SUPERT_10_3.0"] > 0 else -1
+        supertrend_signal = 1 if last_row["SUPERTd_10_3.0"] == 1 else -1
         rsi_signal = 1 if last_row_rsi < 30 else -1 if last_row_rsi > 70 else 0
-        macd_signal = (
-            1
-            if last_row_macd > last_row_macd_signal
-            else -1 if last_row_macd < last_row_macd_signal else 0
-        )
+        macd_signal = 1 if last_row_macd > last_row_macd_signal else -1 if last_row_macd < last_row_macd_signal else 0
 
         # Calculate composite score
         composite_score = (

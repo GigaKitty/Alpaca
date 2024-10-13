@@ -31,7 +31,6 @@ def qty(data):
     - at the end we add base to the qty to ensure we have a an extra reserve of 10 shares to let them run.
     - Therefore the minimum qty will be 20 shares so gotta have that 💰💸🪙
     """
-    return 10
     buying_power = float(data["acc"].buying_power)
     base = data.get("base")
     if data.get("qty") is not None:
@@ -105,6 +104,9 @@ def notional(data):
     - The notional value is calculated as the quantity of shares multiplied by the price of the shares
     - Return the calculated notional value
     """
+    if data.get("notional"):
+        return float(data.get("notional"))
+    
     buying_power = float(data["acc"].buying_power)
     if buying_power > 0:
         buying_power = round(buying_power * data["risk"])
@@ -239,3 +241,24 @@ def calculate_profit(data, api):
             total_sell_quantity += float(order.filled_qty)
 
     return total_sell_revenue - total_buy_cost
+
+
+def damn(price):
+    if float(price) >= 1000:
+        return (
+            jsonify(
+                {"Price too high": "📈 The price of this stock is too damn high 🤚"}
+            ),
+            400,
+        )
+    elif float(price) <= 10:
+        return (
+            jsonify({"Price too low": "📉 The price of this stock is too damn low 🤚"}),
+            400,
+        )
+
+    elif float(price) <= 5:
+        return (
+            jsonify({"Penny Stock": "💸 This stock is a penny stock 🫨 🤚"}),
+            400,
+        )

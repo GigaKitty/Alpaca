@@ -35,6 +35,12 @@ def buy_side_only(data):
             return jsonify(error_message), 400
 
 
+def crypto_buy_side_only(data):
+    # Get qty_available and qty and find the closest rounded down number
+    # so if qty is 0.9975 then it will round down to 0.99
+    print(data)
+
+
 @app.before_request
 @timeit_ns
 def preprocess():
@@ -44,16 +50,26 @@ def preprocess():
     Essentailly, it's to preprocess the Data object and set defaults before it's sent to the order endpoints.
     Keep it fast 🐇 and simple......
     """
-    # Set the global data to the request.json
+    # Skip endpoints in the list 🦘
+    if request.path in SKIP_PATHS:
+        if request.path == "/metrics":
+            return None
+        else:
+            return None
+
+
+    if request.method == "POST" and not request.is_json:
+        return jsonify({"error": "Unsupported Media Type"}), 415
+
+    if request.method == "POST" and "signature" not in request.json:
+        return jsonify({"error": "Bad Request - 'name' is required"}), 400
+
+    # Set the global data to the request.json now that we know it xists
     g.data = request.json
 
     # Exit Early fail often 🦉 Validate the signature of the request coming in
     if sec.authorize(g.data) != True and request.path not in SKIP_PATHS:
         return jsonify({"Unauthorized": "🤚 Failed to process signature"}), 401
-
-    # Skip endpoints in the list 🦘
-    if request.path in SKIP_PATHS:
-        return jsonify({"Skip endpoint": "🦘 Skipping from skip list"}), 400
 
     # Hack Time 😎
     clock = api.get_clock()
@@ -63,26 +79,6 @@ def preprocess():
         request.endpoint is None or request.endpoint.startswith(("equity"))
     ):
         return jsonify({"Market Closed": "📉 Market is closed for equity orders"}), 400
-
-    # Reject stocks with a price over 1000 🫷
-    if float(g.data.get("close")) >= 1000:
-        return (
-            jsonify(
-                {"Price too high": "📈 The price of this stock is too damn high 🤚"}
-            ),
-            400,
-        )
-    elif float(g.data.get("close")) <= 10:
-        return (
-            jsonify({"Price too low": "📉 The price of this stock is too damn low 🤚"}),
-            400,
-        )
-    
-    elif float(g.data.get("close")) <= 5:
-        return (
-            jsonify({"Penny Stock": "💸 This stock is a penny stock 🫨 🤚"}),
-            400,
-        )
 
     if g.data not in [None, {}]:
         #####################
@@ -95,13 +91,13 @@ def preprocess():
         )  # Get current position for symbol
 
         # Calc data
-        g.data["risk"] = calc.risk(
-            g.data
-        ) 
-        g.data["base"] = 5 # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
+        g.data["risk"] = calc.risk(g.data)
+        g.data["base"] = (
+            5  # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
+        )
         # @NOTE: Risk and base needs to be calculated first before qty and notional
 
-        #g.data["limit_price"] = calc.limit_price(g.data)
+        # g.data["limit_price"] = calc.limit_price(g.data)
         g.data["notional"] = calc.notional(g.data)
         g.data["profit"] = calc.profit(g.data)
         g.data["qty_available"] = calc.qty_available(g.data, api)
@@ -109,6 +105,7 @@ def preprocess():
         g.data["side"] = calc.side(g.data)
         g.data["trail_percent"] = calc.trail_percent(g.data)
         g.data["trailing"] = calc.trailing(g.data)
+
         # Override the data object with the POST data
         g.data["opps"] = position.opps(g.data, api)
         g.data["order_id"] = order.gen_id(g.data, 10)
@@ -116,6 +113,17 @@ def preprocess():
         g.data["after_hours"] = g.data.get("after_hours", False)
         g.data["comment"] = g.data.get("comment", "🤐")
         g.data["interval"] = g.data.get("interval", "🔕")
+
+        if (
+            request.endpoint is None
+            or request.endpoint.startswith(("crypto"))
+            and g.data.get("pos") is False
+            and g.data.get("action") == "sell"
+        ):
+            return (
+                jsonify({"Crypto is buy side only": "🪙 Crypto is buy side only"}),
+                400,
+            )
 
         # This will run some operations before the order is processed
         # Actions like closing orders, etc.

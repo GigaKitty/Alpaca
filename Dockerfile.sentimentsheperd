@@ -1,31 +1,25 @@
 # Use an official CUDA runtime as a parent image
 FROM nvidia/cuda:12.6.1-cudnn-devel-ubuntu20.04
 
-# Set the working directory in the container
-WORKDIR /app
+# Keeps Python from generating .pyc files in the container
+ENV PYTHONDONTWRITEBYTECODE=1
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
 
 ARG SVC_DIR
 
-
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     python3 \
     python3-pip \
-    && apt-get clean
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
 
 COPY ${SVC_DIR} /app/
-RUN python -m pip install --upgrade pip
-RUN python -m pip install --trusted-host pypi.python.org -r requirements.txt
-EXPOSE 6379
-# Define environment variable
-ENV REDIS_HOST=redis-stack
-ENV REDIS_PORT=6379
-# Run main.py when the container launches
-CMD ["python", "main.py"]
+
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --trusted-host pypi.python.org -r requirements.txt
+CMD ["python3", "main.py"]

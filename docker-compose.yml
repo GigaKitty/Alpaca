@@ -77,32 +77,32 @@ services:
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
 
   
-  # sentimentsheperd:
-  #   build:
-  #     dockerfile: Dockerfile.sentimentsheperd
-  #     args:
-  #       SVC_DIR: ./svc/sentimentsheperd
-  #   restart: always
-  #   container_name: sentimentsheperd-${ENVIRONMENT}
-  #   profiles:
-  #     - dev
-  #   labels:
-  #     - "profile=dev"
-  #   volumes:
-  #     - ./svc/sentimentsheperd/:/app/
-  #   networks:
-  #     - core_network
-  #   environment:
-  #     - REDIS_HOST=${REDIS_HOST:-redis-stack}
-  #     - REDIS_PORT=${REDIS_PORT:-6379}
-  #     - ENVIRONMENT=${ENVIRONMENT}
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
+  sentimentsheperd:
+    build:
+      dockerfile: Dockerfile.sentimentsheperd
+      args:
+        SVC_DIR: ./svc/sentimentsheperd
+    restart: always
+    container_name: sentimentsheperd-${ENVIRONMENT}
+    profiles:
+      - dev
+    labels:
+      - "profile=dev"
+    volumes:
+      - ./svc/sentimentsheperd/:/app/
+    networks:
+      - core_network
+    environment:
+      - REDIS_HOST=${REDIS_HOST:-redis-stack}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - ENVIRONMENT=${ENVIRONMENT}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   slanger:
     build:
@@ -288,8 +288,6 @@ services:
       dockerfile: Dockerfile.grafana
       target: grafana
     container_name: grafana-${ENVIRONMENT}
-    #depends_on:
-    #  - loki
     restart: always
     ports:
       - ${GRAFANA_PORT:-3000}:3000
@@ -302,8 +300,8 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
     volumes:
-      - grafana_data:/var/lib/grafana:ro
-      - ./_config/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+      - ./_config/provisioning:/etc/grafana/provisioning
 
   influxdb:
     image: influxdb:latest
@@ -323,18 +321,22 @@ services:
     networks:
       - core_network
   
-  # loki:
-  #   image: grafana/loki:2.5.0
-  #   container_name: loki-${ENVIRONMENT}
-  #   profiles:
-  #     - core
-  #   labels:
-  #     - "profile=core"
-  #   ports:
-  #     - "3100:3100"
-  #   volumes:
-  #     - ./_config/loki-config.yml:/etc/loki/local-config.yaml
-  #   command: -config.file=/etc/loki/local-config.yaml
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki-${ENVIRONMENT}
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    ports:
+      - "3100:3100"
+    networks:
+      - core_network
+    volumes:
+      - ./_config/loki-config.yml:/etc/loki/local-config.yam:ro
+      - ./_data/loki-data:/data
+      - ./_data/loki-wal:/wal
+    command: -config.file=/etc/loki/local-config.yaml
 
   marketstore:
     image: alpacamarkets/marketstore:latest
@@ -380,18 +382,38 @@ services:
     networks:
       - core_network
 
-  # promtail:
-  #   image: grafana/promtail:2.5.0
-  #   container_name: promtail-${ENVIRONMENT}
-  #   profiles:
-  #     - core
-  #   labels:
-  #     - "profile=core"
-  #   volumes:
-  #     - ./var/log:/var/log:ro
-  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
-  #     - ./_config/promtail-config.yml:/etc/promtail/config.yml
-  #   command: -config.file=/etc/promtail/config.yml
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway-${ENVIRONMENT}
+    restart: always
+    depends_on:
+      - prometheus
+    profiles:
+      - core
+    labels:
+      - "profile=core"
+    networks:
+      - core_network
+    ports:
+      - "9091:9091"
+
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail-${ENVIRONMENT}
+    profiles:
+      - core
+    depends_on:
+      - loki
+    labels:
+      - "profile=core"
+    networks:
+      - core_network
+    volumes:
+      - ./_data/var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./_config/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
 
   redis-stack:
     image: redis/redis-stack:latest

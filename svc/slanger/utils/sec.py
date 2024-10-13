@@ -3,6 +3,7 @@ import os
 import ssl
 import hmac
 import hashlib
+import base64
 
 
 def validate_signature(data):
@@ -12,28 +13,34 @@ def validate_signature(data):
     Set the environment variable TRADINGVIEW_SECRET to the secret key from TradingView
     """
     signature = os.getenv("TRADINGVIEW_SECRET", False)
-    
+
     if signature is False:
-        #app.logger.error("TRADINGVIEW_SECRET environment variable not set")
+        # app.logger.error("TRADINGVIEW_SECRET environment variable not set")
         return render_template("404.html"), 404
 
     # Check if data is a dictionary
     if not isinstance(data, dict):
-        #app.logger.error("Invalid data format: not a dictionary")
+        # app.logger.error("Invalid data format: not a dictionary")
         return render_template("404.html"), 404
 
     # Check if data contains a "signature" key
     if "signature" not in data:
-        #app.logger.error("Missing signature in data")
+        # app.logger.error("Missing signature in data")
         return render_template("404.html"), 404
 
+    # Base decode the signature
+    if not decode_signature(data.get("signature")):
+        # app.logger.error("Invalid signature")
+        return render_template("404.html"), 404
+
+    # Check the payload signature
     provided_signature = data.get("signature")
     message = str(data).encode("utf-8")
     secret = signature.encode("utf-8")
     expected_signature = hmac.new(secret, message, hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(provided_signature, expected_signature):
-        #app.logger.error("Invalid signature")
+        # app.logger.error("Invalid signature")
         return render_template("404.html"), 404
     else:
         return True
@@ -71,6 +78,7 @@ def validate_certificate():
 
     return True
 
+
 def sanitize_data(data):
     sanitized = {}
     for key, value in data.items():
@@ -80,9 +88,24 @@ def sanitize_data(data):
             sanitized[key] = value
     return sanitized
 
-2
+
+def decode_signature(signature):
+    if not isinstance(signature, str):
+        return False
+    try:
+        decode_string = base64.b64decode(signature)
+        decoded_signature = decode_string.decode("utf-8")
+        if decoded_signature == os.getenv("BASE64_KEY"):
+            return True
+        else:
+            return False
+    except (base64.binascii.Error, UnicodeDecodeError) as e:
+        print(f"Error decoding signature: {e}")
+        return False
+
+
 def authorize(data):
-    #if validate_certificate() and validate_signature(data):
+    # if validate_certificate() and validate_signature(data):
     if validate_signature(data):
         return True
     else:

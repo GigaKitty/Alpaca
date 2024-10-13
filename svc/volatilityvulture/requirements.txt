@@ -7,3 +7,5 @@ pandas==2.2.1
 pymarketstore==0.22
 redis==5.0.4
 websockets==11.0.3
+vectorbt==0.26.2
+prometheus-client==0.21.0

@@ -50,8 +50,8 @@ async def update_list_periodically(update_interval, websocket):
         except ConnectionResetError:
             # Reconnect logic here
             print("IDK what to do here")
-            # websocket = await handle_connection(request)
-            # l#ogging.error("Connection reset. Reconnecting...")
+            websocket = await handle_connection(request)
+            logging.error("Connection reset. Reconnecting...")
 
 
 async def get_list(ticker_list):
@@ -99,7 +99,8 @@ async def broadcast(message, channel):
     # Publish message to Redis
     await redis_client.publish(channel, message)
 
-#@IMP: let's also make the stream channel work for both the paper and live accounts.
+
+# @IMP: let's also make the stream channel work for both the paper and live accounts.
 # if we do that we can monitor for instance chirple with two voices and two different accounts
 async def account_socket():
     if os.getenv("ENVIRONMENT") in ["core", "main"]:
@@ -254,7 +255,7 @@ async def stocks_socket():
                 async for msg in websocket:
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = msg.data
-                        #logging.info(f"Stocks data: {data}")
+                        # logging.info(f"Stocks data: {data}")
                         await broadcast(data, "stocks_channel")
                     elif msg.type == aiohttp.WSMsgType.CLOSED:
                         logging.info("Stocks WebSocket connection closed")

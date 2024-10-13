@@ -13,7 +13,7 @@ def order():
     try:
         order_data = MarketOrderRequest(
             symbol=g.data.get("ticker"),
-            qty=1, #@TODO: Change this to g.data.get("qty") after fixing
+            qty=g.data.get("qty"),
             side=g.data.get("action"),
             time_in_force=TimeInForce.IOC,
             client_order_id=g.data.get("order_id"),

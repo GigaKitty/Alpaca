@@ -2,17 +2,27 @@ server:
   http_listen_port: 9080
   grpc_listen_port: 0
 
-positions:
-  filename: /tmp/positions.yaml
-
 clients:
   - url: http://loki:3100/loki/api/v1/push
 
+positions:
+  filename: /tmp/positions.yaml
+
 scrape_configs:
-  - job_name: system
+  - job_name: docker
     static_configs:
       - targets:
           - localhost
         labels:
-          job: varlogs
-          __path__: /var/log/*log
+          job: "{{.Job}}"
+          stream: "{{.Stream}}"
+          __path__: /var/lib/docker/containers/*/*.log
+    pipeline_stages:
+      - docker: {}
+      - labels:
+          namespace: "alpaca"
+          pod: '{{.Label "com.docker.compose.project"}}'
+          app: "{{.ContainerName}}"
+          container_image: "{{.ContainerImage}}"
+          container_id: "{{.ContainerID}}"
+          service: '{{.Label "com.docker.compose.service"}}'

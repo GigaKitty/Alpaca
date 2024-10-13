@@ -53,9 +53,11 @@ async def redis_listener():
     await pubsub.subscribe("news_channel")
 
     async for message in pubsub.listen():
+        print(message)
         if message["type"] == "message":
             data = message["data"]
-            display_in_cli(data)
+            print(data)
+            #display_in_cli(data)
 
 
 def display_in_cli(article):
