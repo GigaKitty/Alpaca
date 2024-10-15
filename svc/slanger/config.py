@@ -6,16 +6,17 @@ import os
 # Initialize the Flask app
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
-metrics.info('app_info', 'Application info', version='1.0.3')
+metrics.info("app_info", "Application info", version="1.0.3")
 
 SKIP_PATHS = [
-    "/metrics",
-    "/health",
-    "/metrics_endpoint",
-    "/health_check",
+    "/favicon.ico",
     "/health_check_liveness",
     "/health_check_readiness",
     "/health_check_startup",
+    "/health_check",
+    "/health",
+    "/metrics_endpoint",
+    "/metrics",
 ]
 # PRE and POST process lists are included here so that only they are able to run instead of other functions not included in the list
 PREPROCESS = ["buy_side_only", "sell_side_only"]
@@ -26,7 +27,7 @@ COMMENTS = ["sl/tp", "Close entry(s) order Long", "Close entry(s) order Short"]
 # Enable debug mode if FLASK_ENV is set to development
 if os.getenv("ENVIRONMENT") == "dev" or os.getenv("DEBUG") == "True":
     print("DEBUG MODE ENABLED")
-    # app.config["DEBUG"] = True
+    #app.config["DEBUG"] = True
 
 paper = True if os.getenv("ENVIRONMENT", "dev") != "main" else False
 

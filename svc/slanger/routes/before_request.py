@@ -57,7 +57,6 @@ def preprocess():
         else:
             return None
 
-
     if request.method == "POST" and not request.is_json:
         return jsonify({"error": "Unsupported Media Type"}), 415
 
@@ -93,15 +92,16 @@ def preprocess():
         # Calc data
         g.data["risk"] = calc.risk(g.data)
         g.data["base"] = (
-            5  # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity
+            5  # Base is the minimum amount of shares to buy it's also used to calculate the trailing stop, and the quantity  # @NOTE: Risk and base needs to be calculated first before qty and notional
         )
-        # @NOTE: Risk and base needs to be calculated first before qty and notional
 
-        # g.data["limit_price"] = calc.limit_price(g.data)
         g.data["notional"] = calc.notional(g.data)
         g.data["profit"] = calc.profit(g.data)
-        g.data["qty_available"] = calc.qty_available(g.data, api)
+
+        # @NOTE QTY and QTY_AVAILABLE needs to be calculated in this order qty -> qty_available
         g.data["qty"] = calc.qty(g.data)
+        g.data["qty_available"] = calc.qty_available(g.data, api)
+
         g.data["side"] = calc.side(g.data)
         g.data["trail_percent"] = calc.trail_percent(g.data)
         g.data["trailing"] = calc.trailing(g.data)

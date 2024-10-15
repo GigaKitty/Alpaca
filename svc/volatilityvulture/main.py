@@ -6,7 +6,7 @@ import logging
 import os
 #import numpy as np
 import pandas as pd
-#import pandas_ta as ta
+import pandas_ta as ta
 import pymarketstore as pymkts
 import redis.asyncio as aioredis
 import requests
@@ -97,7 +97,7 @@ async def read_data_from_marketstore(symbol):
 
     # Perform the query
     try:
-        logging.info(f"Querying data for {symbol}/{timeframe}/{attribute_group}")
+        #logging.info(f"Querying data for {symbol}/{timeframe}/{attribute_group}")
         response = marketstore_client.query(params).first()
         if response is None:
             logging.error("Marketstore query returned no results.")
@@ -276,7 +276,7 @@ async def monitor_redis_channel():
             
             for message_data in message_data_list:
                 symbol = message_data.get("S")
-                if symbol in volatility:
+                if symbol in volatility and message_data.get("T") in ["b", "d", "u"]:
                     await process_stock(symbol)
 
     await redis.close()

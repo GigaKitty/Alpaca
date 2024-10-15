@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, g
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import TimeInForce
-from config import api, app, POSTPROCESS
+from config import api, app
 from utils.performance import timeit_ns
 
 crypto_market = Blueprint("crypto_market", __name__)
@@ -24,7 +24,7 @@ def order():
             order.qty,
             g.data.get("ticker"),
         )
-        
+
         order_dict = order.__dict__
 
         response_data = {"order": order_dict}

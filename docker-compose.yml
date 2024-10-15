@@ -76,7 +76,6 @@ services:
       - REDIS_PORT=${REDIS_PORT:-6379}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
 
-  
   sentimentsheperd:
     build:
       dockerfile: Dockerfile.sentimentsheperd
@@ -154,9 +153,9 @@ services:
       - APCA_API_SECRET_KEY=${APCA_API_SECRET_KEY}
       - DEBUG=${DEBUG:-true}
       - ENVIRONMENT=${ENVIRONMENT}
-      - REGULARS=${REGULARS}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - REGULARS=${REGULARS}
       - TRADINGVIEW_SECRET=${TRADINGVIEW_SECRET}
       - VOLATILITYVULTURE_ORDER_ENDPOINT=${VOLATILITYVULTURE_ORDER_ENDPOINT}
 
@@ -174,7 +173,7 @@ services:
     restart: always
     volumes:
       - ./svc/yieldyak/:/app/:ro
-      - ./_config/credentials.json/:/app/.credentials.json:ro
+      - ./_config/credentials.json/:/app/credentials.json:ro
     networks:
       - core_network
     environment:
@@ -201,9 +200,9 @@ services:
       - core_network
     restart: always
     environment:
+      - ENVIRONMENT=${ENVIRONMENT}
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
-      - ENVIRONMENT=${ENVIRONMENT}
 
   chirple:
     build:
@@ -219,8 +218,8 @@ services:
     restart: always
     volumes:
       - ./svc/chirple/:/app/
-      - /run/user/1000/pulse:/run/user/1000/pulse:ro # @NOTE: this might not work for everyone 
       - /etc/machine-id:/etc/machine-id:ro    
+      - /run/user/1000/pulse:/run/user/1000/pulse:ro # @NOTE: this might not work for everyone host is Linux
     devices:
       - /dev/snd
     depends_on:
@@ -228,8 +227,8 @@ services:
     networks:
       - core_network
     environment:
-      - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - ENVIRONMENT=${ENVIRONMENT}
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - REDIS_HOST=${REDIS_HOST:-redis-stack}
       - REDIS_PORT=${REDIS_PORT:-6379}
 

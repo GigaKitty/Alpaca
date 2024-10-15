@@ -10,6 +10,8 @@ equity_market = Blueprint("equity_market", __name__)
 @equity_market.route("/market", methods=["POST"])
 @timeit_ns
 def market():
+    if g.data.get("pos") is not False:
+        g.data["qty"] = g.data.get("qty_available")
     try:
         order_data = MarketOrderRequest(
             symbol=g.data.get("ticker"),
@@ -21,10 +23,10 @@ def market():
         )
         app.logger.debug("Market Order Data: %s", order_data)
         order = api.submit_order(order_data=order_data)
-        #app.logger.debug("Market Order: %s", order)
+        app.logger.debug("Market Order: %s", order)
         response_data = {
             "message": "Market order processed successfully",
-            "postprocess": g.data.get("postprocess")
+            "postprocess": g.data.get("postprocess"),
         }
         return jsonify(response_data), 200
     except Exception as e:

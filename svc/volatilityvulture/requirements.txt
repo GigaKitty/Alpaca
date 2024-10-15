@@ -2,10 +2,9 @@ aiohttp==3.9.5
 aioredis==2.0.1
 alpaca-py==0.17.0
 apscheduler==3.10.4
-pandas-ta==0.3.14b
+pandas_ta==0.3.14b
 pandas==2.2.1
+prometheus-client==0.21.0
 pymarketstore==0.22
 redis==5.0.4
 websockets==11.0.3
-vectorbt==0.26.2
-prometheus-client==0.21.0

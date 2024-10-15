@@ -45,7 +45,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/calendar",
 ]
-SERVICE_ACCOUNT_FILE = "/app/.credentials.json"
+SERVICE_ACCOUNT_FILE = "/app/credentials.json"
 GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID")
 
 gc = gspread.service_account(filename=SERVICE_ACCOUNT_FILE)

@@ -1,8 +1,9 @@
 from config import app
 from flask import Flask, Blueprint, render_template, request, jsonify, g
-from routes import health, before_request, after_request, error_handler
+from routes import health, before_request, after_request, error_handler, favicon
 import importlib
 import os
+
 
 def register_routes(app, package_name, package_path):
     """
@@ -28,7 +29,6 @@ if __name__ == "__main__":
 
     # Register routes for equity
     register_routes(app, "routes.options", "routes/options")
-
 
     # Run the app
     app.run(host="0.0.0.0", port=5000)

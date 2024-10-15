@@ -360,7 +360,7 @@ async def monitor_redis_channel():
 
             for message_data in message_data_list:
                 symbol = message_data.get("S")
-                if symbol in earnings:
+                if symbol in earnings and message_data.get("T") in ["b", "d", "u"]:
                     logging.info(f"Processing symbol: {symbol}")
                     data = await read_data_from_marketstore(symbol)
                     await calc_strat(symbol, data)

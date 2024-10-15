@@ -34,7 +34,7 @@ def qty(data):
     buying_power = float(data["acc"].buying_power)
     base = data.get("base")
     if data.get("qty") is not None:
-        return round(data.get("qty"))
+        return round(float(data.get("qty")))
     elif buying_power > 0 and data.get("price") is not None:
         market_value = round(
             buying_power * data["risk"]
@@ -46,11 +46,11 @@ def qty(data):
             divisible / base
         )  # Round to the nearest base number likely 10
         if qty >= base:
-            return qty + base
+            return float(qty + base)
         else:
-            return base + base
+            return float(base + base)
     else:
-        return base + base
+        return float(base + base)
 
 
 def qty_available(data, api):
@@ -60,21 +60,18 @@ def qty_available(data, api):
     - If the data does not contain a position, return the quantity available in the account
     - Return the quantity available
     """
-    qty_available = data.get("qty")
-    if position.get_position(data, api) is not False:
+    if data.get("pos") is not False:
         try:
-            pos = position.get_position(data, api)
-            qty_available = pos.qty_available
+            qty_available = data.get("pos").qty_available
         except ValueError:
             # Handle the case where the string does not represent a number
             app.logger.error(f"Error: is not a valid number.")
             return None
+    elif data.get("qty_available") is None:
+        qty_available = abs(float(data.get("qty")))
+
     app.logger.debug(f"Quantity Available: {qty_available}")
-
-    if qty_available is None:
-        return 0
-
-    return qty_available
+    return abs(float(qty_available))
 
 
 def side(data):
@@ -106,7 +103,7 @@ def notional(data):
     """
     if data.get("notional"):
         return float(data.get("notional"))
-    
+
     buying_power = float(data["acc"].buying_power)
     if buying_power > 0:
         buying_power = round(buying_power * data["risk"])
